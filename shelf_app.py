@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import glob
 
-# Helper function to search for an image file for a given record_id.
+# Helper function to look for an image file matching record_id with any common extension.
 def get_image_path(record_id, folder="images"):
     extensions = ["jpg", "jpeg", "png", "gif"]
     for ext in extensions:
@@ -44,7 +44,9 @@ def login_screen():
         st.session_state.answered = False
         st.session_state.result_message = ""
         st.session_state.result_color = ""
-        # We'll initialize the navigation results later, after loading the CSV.
+        # Initialize navigation results list once the CSV is loaded.
+        df = load_data("pediatric_usmle_long_vignettes.csv")
+        st.session_state.results = [None] * len(df)
         st.rerun()
 
 def exam_screen():
@@ -55,23 +57,22 @@ def exam_screen():
     df = load_data("pediatric_usmle_long_vignettes_final.csv")
     total_questions = len(df)
     
-    # Initialize the navigation results list if it doesn't exist.
-    if "results" not in st.session_state:
-        st.session_state.results = [None] * total_questions
-
-    # Sidebar navigation panel.
+    # Sidebar Navigation with clickable buttons.
     with st.sidebar:
         st.header("Navigation")
         for i in range(total_questions):
-            # Mark the current question.
+            # Determine marker based on answer result.
+            marker = ""
+            if st.session_state.results[i] == "correct":
+                marker = "✅"
+            elif st.session_state.results[i] == "incorrect":
+                marker = "❌"
             current_marker = " (Current)" if i == st.session_state.question_index else ""
-            status = st.session_state.results[i]
-            if status == "correct":
-                st.markdown(f"**Question {i+1}: ✅{current_marker}**")
-            elif status == "incorrect":
-                st.markdown(f"**Question {i+1}: ❌{current_marker}**")
-            else:
-                st.markdown(f"Question {i+1}: -{current_marker}")
+            label = f"Question {i+1}: {marker}{current_marker}"
+            # Create a button for each question.
+            if st.button(label, key=f"nav_{i}"):
+                st.session_state.question_index = i
+                st.experimental_rerun()
 
     # Check if the exam is over.
     if st.session_state.question_index >= total_questions:
@@ -81,7 +82,7 @@ def exam_screen():
 
     current_row = df.iloc[st.session_state.question_index]
 
-    # Display an image if one exists for the current question.
+    # Display image if available.
     record_id = current_row["record_id"]
     image_path = get_image_path(record_id)
     if image_path:
@@ -103,7 +104,7 @@ def exam_screen():
             options.append(option_text)
             option_mapping[option_text] = letter
 
-    # Create two columns: left for the question and answer selection, right for result and explanation.
+    # Create two columns: left for the question/answer and right for result and explanation.
     col1, col2 = st.columns(2)
     
     with col1:
@@ -111,7 +112,7 @@ def exam_screen():
         st.write(current_row["question"])
         user_choice = st.radio("Select your answer:", options, key=f"radio_{st.session_state.question_index}")
         
-        # Display the "Submit Answer" button only if the question is not yet answered.
+        # Only show the Submit Answer button if the question is not yet answered.
         if not st.session_state.answered:
             if st.button("Submit Answer", key=f"submit_{st.session_state.question_index}"):
                 st.session_state.answered = True
@@ -137,7 +138,7 @@ def exam_screen():
             st.write("**Explanation:**")
             st.write(current_row["answer_explanation"])
 
-    # Next Question button to move to the following question.
+    # Next Question button.
     if st.button("Next Question", key=f"next_{st.session_state.question_index}"):
         st.session_state.question_index += 1
         st.session_state.answered = False
