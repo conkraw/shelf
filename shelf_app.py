@@ -8,7 +8,7 @@ def get_image_path(record_id, folder="images"):
     # List of common image file extensions
     extensions = ["jpg", "jpeg", "png", "gif"]
     for ext in extensions:
-        # Build a search pattern; you may adjust the folder as needed
+        # Build a search pattern; adjust the folder as needed
         pattern = os.path.join(folder, f"{record_id}.{ext}")
         matches = glob.glob(pattern)
         if matches:
@@ -25,14 +25,13 @@ def main():
 
     # Step 1: Passcode verification
     passcode_input = st.text_input("Enter passcode", type="password")
-    # The passcode should be set in your .streamlit/secrets.toml file, e.g.,
-    # [default]
-    # passcode = "your_secret_passcode"
-    if "passcode" not in st.secrets:
+    if "default" in st.secrets and "passcode" in st.secrets["default"]:
+        secret_passcode = st.secrets["default"]["passcode"]
+    else:
         st.error("Passcode not configured. Please set it in your secrets file.")
         st.stop()
 
-    if passcode_input != st.secrets["passcode"]:
+    if passcode_input != secret_passcode:
         st.error("Invalid passcode. Please try again.")
         st.stop()
 
@@ -45,10 +44,11 @@ def main():
     st.success(f"Welcome, {user_name}!")
 
     # Step 3: Load the dataset
-    # Make sure the CSV file (pediatric_usmle_long_vignettes.csv) is in your app’s folder.
     df = load_data("pediatric_usmle_long_vignettes.csv")
-    st.write("Available columns:", df.columns.tolist())
     
+    # Debug: Display available columns (for troubleshooting)
+    # st.write("Available columns:", df.columns.tolist())
+
     # Initialize session state for the exam if not already set.
     if "question_index" not in st.session_state:
         st.session_state.question_index = 0
@@ -72,19 +72,14 @@ def main():
     st.write(current_row["question"])
 
     # Step 4: Display an image if one exists for this question.
-    # It looks for an image file named like <record_id>.<extension> in the specified folder.
     record_id = current_row["record_id"]
     image_path = get_image_path(record_id)
     if image_path:
         st.image(image_path, use_column_width=True)
 
-    # Step 5: Display answer choices.
-    # Adjust the splitting logic based on how your answer choices are stored.
-    # Here we assume they are stored as a comma- or semicolon-separated string.
-    if ";" in current_row["answer_choices"]:
-        options = [choice.strip() for choice in current_row["answer_choices"].split(";")]
-    else:
-        options = [choice.strip() for choice in current_row["answer_choices"].split(",")]
+    # Step 5: Display answer choices from separate columns.
+    option_cols = ["answerchoice_a", "answerchoice_b", "answerchoice_c", "answerchoice_d", "answerchoice_e"]
+    options = [str(current_row[col]).strip() for col in option_cols if pd.notna(current_row[col]) and str(current_row[col]).strip()]
 
     # Create a radio button for answer selection.
     user_answer = st.radio("Select your answer:", options, key=f"radio_{st.session_state.question_index}")
