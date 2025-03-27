@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import glob
 
-# Helper function to look for an image file matching record_id with any common extension.
+# Helper function to search for an image file for a given record_id.
 def get_image_path(record_id, folder="images"):
     extensions = ["jpg", "jpeg", "png", "gif"]
     for ext in extensions:
@@ -22,7 +22,7 @@ def login_screen():
     user_name = st.text_input("Enter your name")
     
     if st.button("Login"):
-        # Check for secrets in the [default] section.
+        # Check for passcode in the [default] section.
         if "default" in st.secrets and "passcode" in st.secrets["default"]:
             secret_passcode = st.secrets["default"]["passcode"]
         else:
@@ -36,15 +36,15 @@ def login_screen():
             st.error("Please enter your name to proceed.")
             return
         
-        # Login successful: set flag and store student name.
+        # Login successful: initialize authentication and exam state.
         st.session_state.authenticated = True
         st.session_state.user_name = user_name
-        # Optionally, initialize exam-related session state.
         st.session_state.question_index = 0
         st.session_state.score = 0
         st.session_state.answered = False
         st.session_state.result_message = ""
         st.session_state.result_color = ""
+        # We'll initialize the navigation results later, after loading the CSV.
         st.rerun()
 
 def exam_screen():
@@ -53,9 +53,27 @@ def exam_screen():
     
     # Load the dataset.
     df = load_data("pediatric_usmle_long_vignettes_final.csv")
-    
-    # Check if the exam is over.
     total_questions = len(df)
+    
+    # Initialize the navigation results list if it doesn't exist.
+    if "results" not in st.session_state:
+        st.session_state.results = [None] * total_questions
+
+    # Sidebar navigation panel.
+    with st.sidebar:
+        st.header("Navigation")
+        for i in range(total_questions):
+            # Mark the current question.
+            current_marker = " (Current)" if i == st.session_state.question_index else ""
+            status = st.session_state.results[i]
+            if status == "correct":
+                st.markdown(f"**Question {i+1}: ✅{current_marker}**")
+            elif status == "incorrect":
+                st.markdown(f"**Question {i+1}: ❌{current_marker}**")
+            else:
+                st.markdown(f"Question {i+1}: -{current_marker}")
+
+    # Check if the exam is over.
     if st.session_state.question_index >= total_questions:
         st.header("Exam Completed")
         st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}**.")
@@ -63,7 +81,7 @@ def exam_screen():
 
     current_row = df.iloc[st.session_state.question_index]
 
-    # Display an image if available.
+    # Display an image if one exists for the current question.
     record_id = current_row["record_id"]
     image_path = get_image_path(record_id)
     if image_path:
@@ -78,22 +96,22 @@ def exam_screen():
         ("e", current_row["answerchoice_e"]),
     ]
     options = []
-    option_mapping = {}  # Maps the formatted option text back to its letter.
+    option_mapping = {}  # Maps the full option text back to its letter.
     for letter, text in option_cols:
         if pd.notna(text) and str(text).strip():
             option_text = f"{letter.upper()}. {text.strip()}"
             options.append(option_text)
             option_mapping[option_text] = letter
 
-    # Create two columns: left for the question & answer selection, right for result and explanation.
+    # Create two columns: left for the question and answer selection, right for result and explanation.
     col1, col2 = st.columns(2)
-
+    
     with col1:
         st.write("**Question:**")
         st.write(current_row["question"])
         user_choice = st.radio("Select your answer:", options, key=f"radio_{st.session_state.question_index}")
         
-        # Show the Submit Answer button only if not already answered.
+        # Display the "Submit Answer" button only if the question is not yet answered.
         if not st.session_state.answered:
             if st.button("Submit Answer", key=f"submit_{st.session_state.question_index}"):
                 st.session_state.answered = True
@@ -103,12 +121,14 @@ def exam_screen():
                     st.session_state.result_message = "Correct!"
                     st.session_state.result_color = "success"
                     st.session_state.score += 1
+                    st.session_state.results[st.session_state.question_index] = "correct"
                 else:
                     st.session_state.result_message = f"Incorrect. The correct answer was: {correct_answer.upper()}"
                     st.session_state.result_color = "error"
+                    st.session_state.results[st.session_state.question_index] = "incorrect"
 
     with col2:
-        # Only show result and explanation after answer submission.
+        # After submission, display the result above the explanation.
         if st.session_state.answered:
             if st.session_state.result_color == "success":
                 st.success(st.session_state.result_message)
@@ -117,7 +137,7 @@ def exam_screen():
             st.write("**Explanation:**")
             st.write(current_row["answer_explanation"])
 
-    # Next Question button.
+    # Next Question button to move to the following question.
     if st.button("Next Question", key=f"next_{st.session_state.question_index}"):
         st.session_state.question_index += 1
         st.session_state.answered = False
@@ -133,5 +153,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
