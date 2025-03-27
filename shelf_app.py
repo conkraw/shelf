@@ -47,6 +47,7 @@ def main():
     # Step 3: Load the dataset
     # Make sure the CSV file (pediatric_usmle_long_vignettes.csv) is in your app’s folder.
     df = load_data("pediatric_usmle_long_vignettes.csv")
+    st.write("Available columns:", df.columns.tolist())
     
     # Initialize session state for the exam if not already set.
     if "question_index" not in st.session_state:
