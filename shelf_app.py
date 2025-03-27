@@ -156,12 +156,14 @@ def exam_screen():
                     st.session_state.results[st.session_state.question_index] = "incorrect"
                 st.rerun()
     with col2:
-        # If answered, display the result and the explanation.
-        if answered:
-            if st.session_state.result_color == "success":
-                st.success(st.session_state.result_message)
-            else:
-                st.error(st.session_state.result_message)
+        if answered:  # i.e., user has already submitted an answer for this question
+            # Only show the alert if result_message is not empty
+            if st.session_state.result_message:
+                if st.session_state.result_color == "success":
+                    st.success(st.session_state.result_message)
+                elif st.session_state.result_color == "error":
+                    st.error(st.session_state.result_message)
+            
             st.write("**Explanation:**")
             st.write(current_row["answer_explanation"])
     
