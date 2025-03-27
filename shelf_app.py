@@ -44,10 +44,7 @@ def main():
     st.success(f"Welcome, {user_name}!")
 
     # Step 3: Load the dataset
-    df = load_data("pediatric_usmle_long_vignettes.csv")
-    
-    # Debug: Display available columns (for troubleshooting)
-    # st.write("Available columns:", df.columns.tolist())
+    df = load_data("pediatric_usmle_long_vignettes_final.csv")
 
     # Initialize session state for the exam if not already set.
     if "question_index" not in st.session_state:
@@ -79,6 +76,7 @@ def main():
 
     # Step 5: Display answer choices from separate columns.
     # Build answer options as tuples of (letter, answer text)
+
     option_cols = [
         ("a", current_row["answerchoice_a"]),
         ("b", current_row["answerchoice_b"]),
@@ -93,21 +91,34 @@ def main():
         if pd.notna(text) and str(text).strip():
             option_text = f"{letter.upper()}. {text.strip()}"
             options.append(option_text)
-            option_mapping[option_text] = letter  # save the letter for answer checking
+            option_mapping[option_text] = letter
     
-    # Create a radio button for answer selection.
-    user_choice = st.radio("Select your answer:", options, key=f"radio_{st.session_state.question_index}")
+    # Create two columns: left for the question & answer, right for explanation.
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Display the question and answer options.
+        st.write(current_row["question"])
+        user_choice = st.radio("Select your answer:", options, key=f"radio_{st.session_state.question_index}")
         
-    if not st.session_state.answered:
-        if st.button("Submit Answer", key=f"submit_{st.session_state.question_index}"):
-            st.session_state.answered = True
-            selected_letter = option_mapping.get(user_choice)
-            correct_answer = str(current_row["correct_answer"]).strip().lower()
-            if selected_letter == correct_answer:
-                st.success("Correct!")
-                st.session_state.score += 1
-            else:
-                st.error(f"Incorrect. The correct answer was: {correct_answer.upper()}")
+        # Only show the Submit Answer button if the question has not been answered.
+        if not st.session_state.answered:
+            if st.button("Submit Answer", key=f"submit_{st.session_state.question_index}"):
+                st.session_state.answered = True
+                selected_letter = option_mapping.get(user_choice)
+                correct_answer = str(current_row["correct_answer"]).strip().lower()
+                if selected_letter == correct_answer:
+                    st.success("Correct!")
+                    st.session_state.score += 1
+                else:
+                    st.error(f"Incorrect. The correct answer was: {correct_answer.upper()}")
+    
+    with col2:
+        # If the answer has been submitted, display the answer explanation.
+        if st.session_state.answered:
+             st.write("**Explanation:**")
+             st.write(current_row["answer_explanation"])
+    
     # Next question button to move to the following question.
     if st.button("Next Question", key=f"next_{st.session_state.question_index}"):
         st.session_state.question_index += 1
