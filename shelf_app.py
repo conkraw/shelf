@@ -72,7 +72,7 @@ def exam_screen():
             # Create a button for each question.
             if st.button(label, key=f"nav_{i}"):
                 st.session_state.question_index = i
-                st.experimental_rerun()
+                st.rerun()
 
     # Check if the exam is over.
     if st.session_state.question_index >= total_questions:
