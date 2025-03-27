@@ -177,6 +177,5 @@ def main():
 
 if __name__ == "__main__":
     # Set wide layout for better use of space.
-    st.set_page_config(layout="wide")
     main()
 
