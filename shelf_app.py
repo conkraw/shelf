@@ -95,7 +95,7 @@ def exam_screen():
     record_id = current_row["record_id"]
     image_path = get_image_path(record_id)
     if image_path:
-        st.image(image_path, use_column_width=True)
+        st.image(image_path, use_container_width=True)
     
     # Build answer options from the CSV columns.
     option_cols = [
