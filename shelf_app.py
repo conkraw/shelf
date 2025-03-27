@@ -49,6 +49,10 @@ def main():
         st.session_state.score = 0
     if "answered" not in st.session_state:
         st.session_state.answered = False
+    if "result_message" not in st.session_state:
+        st.session_state.result_message = ""
+    if "result_color" not in st.session_state:
+        st.session_state.result_color = ""
 
     total_questions = len(df)
     if st.session_state.question_index >= total_questions:
@@ -58,13 +62,13 @@ def main():
 
     current_row = df.iloc[st.session_state.question_index]
 
-    # Display Image (if available)
+    # Display image if available.
     record_id = current_row["record_id"]
     image_path = get_image_path(record_id)
     if image_path:
         st.image(image_path, use_column_width=True)
 
-    # Build answer options with mapping (using letters)
+    # Build answer options with mapping (using letters).
     option_cols = [
         ("a", current_row["answerchoice_a"]),
         ("b", current_row["answerchoice_b"]),
@@ -73,14 +77,14 @@ def main():
         ("e", current_row["answerchoice_e"]),
     ]
     options = []
-    option_mapping = {}  # Maps the full option text back to its letter
+    option_mapping = {}  # Maps the formatted option text back to its letter.
     for letter, text in option_cols:
         if pd.notna(text) and str(text).strip():
             option_text = f"{letter.upper()}. {text.strip()}"
             options.append(option_text)
             option_mapping[option_text] = letter
 
-    # Create two columns: left for the question/answer and right for the explanation.
+    # Create two columns: left for the question and answer selection, right for result and explanation.
     col1, col2 = st.columns(2)
     
     with col1:
@@ -95,21 +99,29 @@ def main():
                 selected_letter = option_mapping.get(user_choice)
                 correct_answer = str(current_row["correct_answer"]).strip().lower()
                 if selected_letter == correct_answer:
-                    st.success("Correct!")
+                    st.session_state.result_message = "Correct!"
+                    st.session_state.result_color = "success"
                     st.session_state.score += 1
                 else:
-                    st.error(f"Incorrect. The correct answer was: {correct_answer.upper()}")
+                    st.session_state.result_message = f"Incorrect. The correct answer was: {correct_answer.upper()}"
+                    st.session_state.result_color = "error"
 
     with col2:
-        # Only show the explanation after the answer is submitted.
+        # Only show the result message and explanation after the answer is submitted.
         if st.session_state.answered:
+            if st.session_state.result_color == "success":
+                st.success(st.session_state.result_message)
+            else:
+                st.error(st.session_state.result_message)
             st.write("**Explanation:**")
             st.write(current_row["answer_explanation"])
 
-    # Next Question Button
+    # Next Question button to move to the following question.
     if st.button("Next Question", key=f"next_{st.session_state.question_index}"):
         st.session_state.question_index += 1
         st.session_state.answered = False
+        st.session_state.result_message = ""
+        st.session_state.result_color = ""
         st.rerun()
 
 if __name__ == "__main__":
