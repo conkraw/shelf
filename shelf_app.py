@@ -5,11 +5,6 @@ import glob
 
 st.set_page_config(layout="wide")
 
-import streamlit as st
-import pandas as pd
-import os
-import glob
-
 # Helper function to look for an image file matching record_id with any common extension.
 def get_image_path(record_id, folder="images"):
     extensions = ["jpg", "jpeg", "png", "gif"]
