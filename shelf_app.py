@@ -3,9 +3,10 @@ import pandas as pd
 import os
 import glob
 
+# Set the wide layout
 st.set_page_config(layout="wide")
 
-# Helper function to look for an image file matching record_id with any common extension.
+# Helper function: search for an image file based on record_id.
 def get_image_path(record_id, folder="images"):
     extensions = ["jpg", "jpeg", "png", "gif"]
     for ext in extensions:
@@ -15,16 +16,18 @@ def get_image_path(record_id, folder="images"):
             return matches[0]
     return None
 
+# Load the CSV file.
 def load_data(csv_file):
     return pd.read_csv(csv_file)
 
+# Login screen: asks for passcode and student name.
 def login_screen():
     st.title("Shelf Examination Login")
     passcode_input = st.text_input("Enter passcode", type="password")
     user_name = st.text_input("Enter your name")
     
     if st.button("Login"):
-        # Check for passcode in the [default] section.
+        # Check passcode in the [default] section of secrets.
         if "default" in st.secrets and "passcode" in st.secrets["default"]:
             secret_passcode = st.secrets["default"]["passcode"]
         else:
@@ -38,21 +41,24 @@ def login_screen():
             st.error("Please enter your name to proceed.")
             return
         
-        # Login successful: initialize authentication and exam state.
+        # Successful login: initialize exam state.
         st.session_state.authenticated = True
         st.session_state.user_name = user_name
         st.session_state.question_index = 0
         st.session_state.score = 0
-        st.session_state.answered = False
-        st.session_state.result_message = ""
-        st.session_state.result_color = ""
-        # Initialize navigation results list and selected answers list after CSV is loaded.
+        # We'll track for each question:
+        #   - results: "correct", "incorrect", or None.
+        #   - selected_answers: the letter the student chose.
         df = load_data("pediatric_usmle_long_vignettes_final.csv")
         total_questions = len(df)
         st.session_state.results = [None] * total_questions
         st.session_state.selected_answers = [None] * total_questions
+        # Clear any previous result message/color.
+        st.session_state.result_message = ""
+        st.session_state.result_color = ""
         st.rerun()
 
+# Exam screen: shows navigation, question, answer options, result, and explanation.
 def exam_screen():
     st.title("Shelf Examination Application")
     st.write(f"Welcome, **{st.session_state.user_name}**!")
@@ -61,11 +67,10 @@ def exam_screen():
     df = load_data("pediatric_usmle_long_vignettes_final.csv")
     total_questions = len(df)
     
-    # Sidebar Navigation with clickable buttons.
+    # Sidebar: Clickable navigation buttons for each question.
     with st.sidebar:
         st.header("Navigation")
         for i in range(total_questions):
-            # Determine marker based on answer result.
             marker = ""
             if st.session_state.results[i] == "correct":
                 marker = "✅"
@@ -73,17 +78,17 @@ def exam_screen():
                 marker = "❌"
             current_marker = " (Current)" if i == st.session_state.question_index else ""
             label = f"Question {i+1}: {marker}{current_marker}"
-            # Clicking the button navigates to that question.
             if st.button(label, key=f"nav_{i}"):
                 st.session_state.question_index = i
                 st.rerun()
     
-    # If the exam is complete, show final score.
+    # If we've reached the end, display the final score.
     if st.session_state.question_index >= total_questions:
         st.header("Exam Completed")
         st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}**.")
         return
 
+    # Get the current question row.
     current_row = df.iloc[st.session_state.question_index]
     
     # Display image if available.
@@ -92,7 +97,7 @@ def exam_screen():
     if image_path:
         st.image(image_path, use_column_width=True)
     
-    # Build answer options with letter mapping.
+    # Build answer options from the CSV columns.
     option_cols = [
         ("a", current_row["answerchoice_a"]),
         ("b", current_row["answerchoice_b"]),
@@ -101,43 +106,42 @@ def exam_screen():
         ("e", current_row["answerchoice_e"]),
     ]
     options = []
-    option_mapping = {}  # Maps the full option text back to its letter.
+    option_mapping = {}  # Maps full option text back to its letter.
     for letter, text in option_cols:
         if pd.notna(text) and str(text).strip():
             option_text = f"{letter.upper()}. {text.strip()}"
             options.append(option_text)
             option_mapping[option_text] = letter
-
-    # If this question has been answered before, set the default selection.
-    if st.session_state.answered:
+    
+    # Check if the current question was already answered.
+    answered = st.session_state.selected_answers[st.session_state.question_index] is not None
+    default_index = 0
+    if answered:
         selected_letter = st.session_state.selected_answers[st.session_state.question_index]
         default_option = None
         for opt, letter in option_mapping.items():
             if letter == selected_letter:
                 default_option = opt
                 break
-        default_index = options.index(default_option) if default_option in options else 0
-    else:
-        default_index = 0
-
-    # Create two columns: left for question/answer and right for result/explanation.
+        if default_option in options:
+            default_index = options.index(default_option)
+    
+    # Layout: two columns for question/answer and for result/explanation.
     col1, col2 = st.columns(2)
     with col1:
         st.write("**Question:**")
         st.write(current_row["question"])
-        # Disable the radio widget if already answered.
+        # The radio widget is disabled if the question has already been answered.
         user_choice = st.radio(
             "Select your answer:", 
             options, 
             index=default_index, 
-            key=f"radio_{st.session_state.question_index}", 
-            disabled=st.session_state.answered
+            key=f"radio_{st.session_state.question_index}",
+            disabled=answered
         )
-        
-        # Only show the Submit Answer button if not yet answered.
-        if not st.session_state.answered:
+        # Only allow submission if not answered.
+        if not answered:
             if st.button("Submit Answer", key=f"submit_{st.session_state.question_index}"):
-                st.session_state.answered = True
                 selected_letter = option_mapping.get(user_choice)
                 st.session_state.selected_answers[st.session_state.question_index] = selected_letter
                 correct_answer = str(current_row["correct_answer"]).strip().lower()
@@ -150,10 +154,10 @@ def exam_screen():
                     st.session_state.result_message = f"Incorrect. The correct answer was: {correct_answer.upper()}"
                     st.session_state.result_color = "error"
                     st.session_state.results[st.session_state.question_index] = "incorrect"
-    
+                st.rerun()
     with col2:
-        # If answered, display the result and explanation.
-        if st.session_state.answered:
+        # If answered, display the result and the explanation.
+        if answered:
             if st.session_state.result_color == "success":
                 st.success(st.session_state.result_message)
             else:
@@ -164,11 +168,12 @@ def exam_screen():
     # Next Question button.
     if st.button("Next Question", key=f"next_{st.session_state.question_index}"):
         st.session_state.question_index += 1
-        st.session_state.answered = False
+        # Reset result message and color for the next question.
         st.session_state.result_message = ""
         st.session_state.result_color = ""
         st.rerun()
 
+# Main function: display login screen if not authenticated; else exam screen.
 def main():
     if "authenticated" not in st.session_state or not st.session_state.authenticated:
         login_screen()
@@ -176,6 +181,5 @@ def main():
         exam_screen()
 
 if __name__ == "__main__":
-    # Set wide layout for better use of space.
     main()
 
