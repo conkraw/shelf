@@ -110,7 +110,7 @@ def main():
     if st.button("Next Question", key=f"next_{st.session_state.question_index}"):
         st.session_state.question_index += 1
         st.session_state.answered = False
-        st.experimental_rerun()
+        st.rerun()
 
 if __name__ == "__main__":
     main()
