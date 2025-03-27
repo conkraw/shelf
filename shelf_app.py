@@ -131,7 +131,9 @@ def exam_screen():
         image_path = get_image_path(record_id)
         if image_path:
             st.image(image_path, use_container_width=True)
-            
+
+        st.write(current_row["anchor"])
+        
         # The radio widget is disabled if the question has already been answered.
         user_choice = st.radio(
             "Select your answer:", 
