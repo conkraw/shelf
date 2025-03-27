@@ -45,7 +45,7 @@ def login_screen():
         st.session_state.result_message = ""
         st.session_state.result_color = ""
         # Initialize navigation results list once the CSV is loaded.
-        df = load_data("pediatric_usmle_long_vignettes.csv")
+        df = load_data("pediatric_usmle_long_vignettes_final.csv")
         st.session_state.results = [None] * len(df)
         st.rerun()
 
