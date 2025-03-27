@@ -91,12 +91,6 @@ def exam_screen():
     # Get the current question row.
     current_row = df.iloc[st.session_state.question_index]
     
-    # Display image if available.
-    record_id = current_row["record_id"]
-    image_path = get_image_path(record_id)
-    if image_path:
-        st.image(image_path, use_container_width=True)
-    
     # Build answer options from the CSV columns.
     option_cols = [
         ("a", current_row["answerchoice_a"]),
@@ -131,6 +125,13 @@ def exam_screen():
     with col1:
         st.write("**Question:**")
         st.write(current_row["question"])
+
+            # Display image if available.
+        record_id = current_row["record_id"]
+        image_path = get_image_path(record_id)
+        if image_path:
+            st.image(image_path, use_container_width=True)
+            
         # The radio widget is disabled if the question has already been answered.
         user_choice = st.radio(
             "Select your answer:", 
