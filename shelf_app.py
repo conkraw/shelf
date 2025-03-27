@@ -82,11 +82,12 @@ def exam_screen():
                 st.session_state.question_index = i
                 st.rerun()
     
-    # If we've reached the end, display the final score.
     if st.session_state.question_index >= total_questions:
         st.header("Exam Completed")
-        st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}**.")
+        percentage = (st.session_state.score / total_questions) * 100
+        st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}** ({percentage:.1f}%).")
         return
+
 
     # Get the current question row.
     current_row = df.iloc[st.session_state.question_index]
