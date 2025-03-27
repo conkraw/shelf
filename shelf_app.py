@@ -97,19 +97,17 @@ def main():
     
     # Create a radio button for answer selection.
     user_choice = st.radio("Select your answer:", options, key=f"radio_{st.session_state.question_index}")
-    
-    # When submitting the answer, compare the selected letter to the correct answer.
-    if st.button("Submit Answer", key=f"submit_{st.session_state.question_index}") and not st.session_state.answered:
-        st.session_state.answered = True
-        selected_letter = option_mapping.get(user_choice)
-        correct_answer = str(current_row["correct_answer"]).strip().lower()
-        if selected_letter == correct_answer:
-            st.success("Correct!")
-            st.session_state.score += 1
-        else:
-            st.error(f"Incorrect. The correct answer was: {correct_answer.upper()}")
         
-
+    if not st.session_state.answered:
+        if st.button("Submit Answer", key=f"submit_{st.session_state.question_index}"):
+            st.session_state.answered = True
+            selected_letter = option_mapping.get(user_choice)
+            correct_answer = str(current_row["correct_answer"]).strip().lower()
+            if selected_letter == correct_answer:
+                st.success("Correct!")
+                st.session_state.score += 1
+            else:
+                st.error(f"Incorrect. The correct answer was: {correct_answer.upper()}")
     # Next question button to move to the following question.
     if st.button("Next Question", key=f"next_{st.session_state.question_index}"):
         st.session_state.question_index += 1
