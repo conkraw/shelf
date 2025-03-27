@@ -17,8 +17,16 @@ def get_image_path(record_id, folder="images"):
     return None
 
 # Load the CSV file.
-def load_data(csv_file):
-    return pd.read_csv(csv_file)
+def load_data(pattern="*.csv"):
+    # Get a list of all CSV files matching the pattern.
+    csv_files = glob.glob(pattern)
+    # Load each CSV into a DataFrame.
+    dfs = [pd.read_csv(file) for file in csv_files]
+    # Combine all DataFrames together.
+    combined_df = pd.concat(dfs, ignore_index=True)
+    # Renumber record_id from 1 to number of rows.
+    combined_df["record_id"] = combined_df.index + 1
+    return combined_df
 
 # Login screen: asks for passcode and student name.
 def login_screen():
@@ -49,11 +57,10 @@ def login_screen():
         # We'll track for each question:
         #   - results: "correct", "incorrect", or None.
         #   - selected_answers: the letter the student chose.
-        df = load_data("vignettes.csv")
+        df = load_data()  # This loads all CSV files in the current folder.
         total_questions = len(df)
         st.session_state.results = [None] * total_questions
         st.session_state.selected_answers = [None] * total_questions
-        # Clear any previous result message/color.
         st.session_state.result_message = ""
         st.session_state.result_color = ""
         st.rerun()
@@ -64,9 +71,9 @@ def exam_screen():
     st.write(f"Welcome, **{st.session_state.user_name}**!")
     
     # Load the dataset.
-    df = load_data("vignettes.csv")
+    df = load_data()  # This loads all CSV files in the current folder.
     total_questions = len(df)
-    
+
     # Sidebar: Clickable navigation buttons for each question.
     with st.sidebar:
         st.header("Navigation")
