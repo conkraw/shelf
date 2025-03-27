@@ -156,17 +156,17 @@ def exam_screen():
                     st.session_state.results[st.session_state.question_index] = "incorrect"
                 st.rerun()
     with col2:
-        if answered:  # i.e., user has already submitted an answer for this question
-            # Only show the alert if result_message is not empty
-            if st.session_state.result_message:
-                if st.session_state.result_color == "success":
-                    st.success(st.session_state.result_message)
-                elif st.session_state.result_color == "error":
-                    st.error(st.session_state.result_message)
+        if answered:  # The user has already answered this question
+            # Check if the stored result for this question is correct or incorrect
+            if st.session_state.results[st.session_state.question_index] == "correct":
+                st.success("Correct!")
+            elif st.session_state.results[st.session_state.question_index] == "incorrect":
+                # Show the correct answer from the CSV
+                correct_answer = str(current_row["correct_answer"]).strip().upper()
+                st.error(f"Incorrect. The correct answer was: {correct_answer}")
             
             st.write("**Explanation:**")
             st.write(current_row["answer_explanation"])
-    
     # Next Question button.
     if st.button("Next Question", key=f"next_{st.session_state.question_index}"):
         st.session_state.question_index += 1
