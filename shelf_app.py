@@ -49,7 +49,7 @@ def login_screen():
         # We'll track for each question:
         #   - results: "correct", "incorrect", or None.
         #   - selected_answers: the letter the student chose.
-        df = load_data("pediatric_usmle_long_vignettes_final.csv")
+        df = load_data("vignettes.csv")
         total_questions = len(df)
         st.session_state.results = [None] * total_questions
         st.session_state.selected_answers = [None] * total_questions
@@ -64,7 +64,7 @@ def exam_screen():
     st.write(f"Welcome, **{st.session_state.user_name}**!")
     
     # Load the dataset.
-    df = load_data("pediatric_usmle_long_vignettes_final.csv")
+    df = load_data("vignettes.csv")
     total_questions = len(df)
     
     # Sidebar: Clickable navigation buttons for each question.
