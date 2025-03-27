@@ -40,7 +40,7 @@ def main():
     st.success(f"Welcome, {user_name}!")
 
     # Load the dataset
-    df = load_data("pediatric_usmle_long_vignettes.csv")
+    df = load_data("pediatric_usmle_long_vignettes_final.csv")
     
     # Initialize session state variables if not already set.
     if "question_index" not in st.session_state:
