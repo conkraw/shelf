@@ -51,7 +51,7 @@ def login_screen():
         total_questions = len(df)
         st.session_state.results = [None] * total_questions
         st.session_state.selected_answers = [None] * total_questions
-        st.experimental_rerun()
+        st.rerun()
 
 def exam_screen():
     st.title("Shelf Examination Application")
