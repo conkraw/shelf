@@ -2,6 +2,10 @@ import streamlit as st
 import pandas as pd
 import os
 import glob
+import random
+
+from docx import Document
+from docx.shared import Inches
 
 # Set the wide layout
 st.set_page_config(layout="wide")
@@ -27,6 +31,69 @@ def load_data(pattern="*.csv"):
     # Renumber record_id from 1 to number of rows.
     combined_df["record_id"] = combined_df.index + 1
     return combined_df
+
+# Create a Word document from a question row.
+def generate_review_doc(row, output_filename="review.docx"):
+    doc = Document()
+    doc.add_heading("Review of Incorrect Question", level=1)
+
+    # Question stem.
+    doc.add_heading("Question:", level=2)
+    doc.add_paragraph(row["question"])
+    
+    # If an image exists, add it.
+    image_path = get_image_path(row["record_id"])
+    if image_path:
+        try:
+            doc.add_picture(image_path, width=Inches(4))
+        except Exception as e:
+            doc.add_paragraph(f"(Image could not be added: {e})")
+    
+    # Answer choices.
+    doc.add_heading("Answer Choices:", level=2)
+    for letter in ["a", "b", "c", "d", "e"]:
+        col_name = "answerchoice_" + letter
+        if pd.notna(row[col_name]) and str(row[col_name]).strip():
+            doc.add_paragraph(f"{letter.upper()}: {row[col_name]}")
+    
+    # Explanation.
+    doc.add_heading("Explanation:", level=2)
+    doc.add_paragraph(row["answer_explanation"])
+    
+    doc.save(output_filename)
+    return output_filename
+
+# Function to send email with attachment.
+def send_email_with_attachment(recipient, subject, body, attachment_path):
+    import smtplib
+    from email.message import EmailMessage
+    import mimetypes
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = st.secrets["email"]["sender"]  # Configure in your secrets file.
+    msg["To"] = recipient
+    msg.set_content(body)
+
+    # Read and attach the file.
+    with open(attachment_path, "rb") as f:
+        file_data = f.read()
+        mime_type, _ = mimetypes.guess_type(attachment_path)
+        if mime_type is None:
+            mime_type = "application/octet-stream"
+        maintype, subtype = mime_type.split('/')
+        msg.add_attachment(file_data, maintype=maintype, subtype=subtype, filename=os.path.basename(attachment_path))
+
+    # Connect to SMTP server and send email.
+    smtp_server = st.secrets["email"]["smtp_server"]
+    smtp_port = st.secrets["email"]["smtp_port"]
+    smtp_username = st.secrets["email"]["username"]
+    smtp_password = st.secrets["email"]["password"]
+
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(smtp_username, smtp_password)
+        server.send_message(msg)
 
 # Login screen: asks for passcode and student name.
 def login_screen():
@@ -93,7 +160,31 @@ def exam_screen():
         st.header("Exam Completed")
         percentage = (st.session_state.score / total_questions) * 100
         st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}** ({percentage:.1f}%).")
+
+        wrong_indices = [i for i, result in enumerate(st.session_state.results) if result == "incorrect"]
+        if wrong_indices:
+            # Choose one random wrong question.
+            selected_index = random.choice(wrong_indices)
+            selected_row = df.iloc[selected_index]
+            # Generate review document.
+            doc_filename = f"review_q{selected_index+1}.docx"
+            generate_review_doc(selected_row, output_filename=doc_filename)
+            
+            # Send email.
+            try:
+                send_email_with_attachment(
+                    recipient="ckrawiec@pennstatehealth.psu.edu",
+                    subject="Review of an Incorrect Question",
+                    body="Please find attached a review document for a question answered incorrectly.",
+                    attachment_path=doc_filename
+                )
+                st.success("Review email sent successfully!")
+            except Exception as e:
+                st.error(f"Error sending email: {e}")
+        else:
+            st.info("No incorrect answers to review!")
         return
+
 
 
     # Get the current question row.
