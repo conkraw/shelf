@@ -181,23 +181,20 @@ def exam_screen():
                 st.button(option, key=f"option_{st.session_state.question_index}_{i}", disabled=True)
         with col2:
             if answered:  # The user has already answered this question
-                # Check if the stored result for this question is correct or incorrect
                 if st.session_state.results[st.session_state.question_index] == "correct":
-                    st.success("Correct!")
+                    st.success(st.session_state.result_message)
                 elif st.session_state.results[st.session_state.question_index] == "incorrect":
-                    # Show the correct answer from the CSV
-                    correct_answer = str(current_row["correct_answer"]).strip().upper()
-                    st.error(f"Incorrect. The correct answer was: {correct_answer}")
+                    st.error(st.session_state.result_message)
                 
                 st.write("**Explanation:**")
                 st.write(current_row["answer_explanation"])
-    # Next Question button.
-    if st.button("Next Question", key=f"next_{st.session_state.question_index}"):
-        st.session_state.question_index += 1
-        # Reset result message and color for the next question.
-        st.session_state.result_message = ""
-        st.session_state.result_color = ""
-        st.rerun()
+            # Next Question button.
+            if st.button("Next Question", key=f"next_{st.session_state.question_index}"):
+                st.session_state.question_index += 1
+                # Reset result message and color for the next question.
+                st.session_state.result_message = ""
+                st.session_state.result_color = ""
+                st.rerun()
 
 # Main function: display login screen if not authenticated; else exam screen.
 def main():
