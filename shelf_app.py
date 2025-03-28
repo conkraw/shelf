@@ -189,8 +189,9 @@ def exam_screen():
                 st.write("**Explanation:**")
                 st.write(current_row["answer_explanation"])
             # Next Question button.
+        
         st.write("---")
-        if st.button("Next Question", key=f"next_{st.session_state.question_index}"):
+        if st.button("Submit Answer", key=f"next_{st.session_state.question_index}"):
             st.session_state.question_index += 1
             # Reset result message and color for the next question.
             st.session_state.result_message = ""
