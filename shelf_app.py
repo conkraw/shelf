@@ -185,7 +185,7 @@ def exam_screen():
                     recipient="ckrawiec@pennstatehealth.psu.edu",
                     subject="Review of an Incorrect Question",
                     body="Please find attached a review document for a question answered incorrectly.",
-                    attachment_path=doc_filename
+                    attachment_path="review.docx"
                 )
                 st.success("Review email sent successfully!")
             except Exception as e:
