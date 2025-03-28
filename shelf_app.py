@@ -176,7 +176,7 @@ def exam_screen():
                         st.session_state.result_color = "error"
                     st.rerun()
          else:
-                    st.button(option, key=f"option_{st.session_state.question_index}_{i}", disabled=True)                
+                st.button(option, key=f"option_{st.session_state.question_index}_{i}", disabled=True)                
 
     with col2:
         if answered:  # The user has already answered this question
