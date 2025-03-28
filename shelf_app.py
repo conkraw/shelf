@@ -92,7 +92,6 @@ def send_email_with_attachment(to_emails, subject, body, attachment_path):
         part = MIMEBase('application', 'octet-stream')
         part.set_payload(attachment.read())
         encoders.encode_base64(part)
-        # Use the file's basename as the attachment filename.
         part.add_header('Content-Disposition', 'attachment', filename=os.path.basename(attachment_path))
         msg.attach(part)
 
@@ -100,7 +99,8 @@ def send_email_with_attachment(to_emails, subject, body, attachment_path):
         # Connect to Gmail's SMTP server using SSL.
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(from_email, password)
-            server.send_message(msg)
+            # Explicitly pass sender and recipients:
+            server.send_message(msg, from_addr=from_email, to_addrs=to_emails)
         st.success("Email sent successfully!")
     except Exception as e:
         st.error(f"Error sending email: {e}")
