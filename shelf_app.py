@@ -180,17 +180,17 @@ def exam_screen():
             else:
                 st.button(option, key=f"option_{st.session_state.question_index}_{i}", disabled=True)
         with col2:
-        if answered:  # The user has already answered this question
-            # Check if the stored result for this question is correct or incorrect
-            if st.session_state.results[st.session_state.question_index] == "correct":
-                st.success("Correct!")
-            elif st.session_state.results[st.session_state.question_index] == "incorrect":
-                # Show the correct answer from the CSV
-                correct_answer = str(current_row["correct_answer"]).strip().upper()
-                st.error(f"Incorrect. The correct answer was: {correct_answer}")
-            
-            st.write("**Explanation:**")
-            st.write(current_row["answer_explanation"])
+            if answered:  # The user has already answered this question
+                # Check if the stored result for this question is correct or incorrect
+                if st.session_state.results[st.session_state.question_index] == "correct":
+                    st.success("Correct!")
+                elif st.session_state.results[st.session_state.question_index] == "incorrect":
+                    # Show the correct answer from the CSV
+                    correct_answer = str(current_row["correct_answer"]).strip().upper()
+                    st.error(f"Incorrect. The correct answer was: {correct_answer}")
+                
+                st.write("**Explanation:**")
+                st.write(current_row["answer_explanation"])
     # Next Question button.
     if st.button("Next Question", key=f"next_{st.session_state.question_index}"):
         st.session_state.question_index += 1
