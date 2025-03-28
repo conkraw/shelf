@@ -146,7 +146,8 @@ def exam_screen():
         # Check if an answer was already selected for this question.
         selected = st.session_state.selected_answers[st.session_state.question_index]
 
-        answer_text_mapping = {}  # Maps the answer text to its letter.
+        answer_text_mapping = {}   # Maps answer text to its letter.
+        letter_to_answer = {}      # Maps letter to the full answer text.
         options = []
         for letter in ["a", "b", "c", "d", "e"]:
             col_name = "answerchoice_" + letter
@@ -154,9 +155,10 @@ def exam_screen():
                 text = str(current_row[col_name]).strip()
                 options.append(text)
                 answer_text_mapping[text] = letter
-
+                letter_to_answer[letter] = text  # store the full answer text
+        
+        # Display answer buttons.
         for i, option in enumerate(options):
-        # If no answer has been selected, show an enabled button.
             if selected is None:
                 if st.button(option, key=f"option_{st.session_state.question_index}_{i}"):
                     # Record the selected letter.
@@ -170,15 +172,14 @@ def exam_screen():
                         st.session_state.score += 1
                     else:
                         st.session_state.results[st.session_state.question_index] = "incorrect"
-                        # Get the correct answer text from the corresponding column.
-                        correct_answer_text = current_row["answerchoice_" + correct_answer_letter]
+                        # Get the correct answer text using the reverse mapping.
+                        correct_answer_text = letter_to_answer.get(correct_answer_letter, "")
                         st.session_state.result_message = f"Incorrect. The correct answer was: {correct_answer_text}"
                         st.session_state.result_color = "error"
                     st.rerun()
             else:
                 st.button(option, key=f"option_{st.session_state.question_index}_{i}", disabled=True)
-
-    with col2:
+        with col2:
         if answered:  # The user has already answered this question
             # Check if the stored result for this question is correct or incorrect
             if st.session_state.results[st.session_state.question_index] == "correct":
