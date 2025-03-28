@@ -142,36 +142,33 @@ def exam_screen():
 
         st.write(current_row["anchor"])
 
-        placeholder = "Select an answer"
-        radio_options = [placeholder] + options
+        st.write("**Select your answer:**")
+        # Check if an answer was already selected for this question.
+        selected = st.session_state.selected_answers[st.session_state.question_index]
 
-        # The radio widget is disabled if the question has already been answered.
-        user_choice = st.radio(
-            "Select your answer:", 
-            radio_options, 
-            index=0, 
-            key=f"radio_{st.session_state.question_index}",
-            disabled=answered
-        )
-        # Only allow submission if not answered.
-        if not answered:
-            if st.button("Submit Answer", key=f"submit_{st.session_state.question_index}"):
-                if user_choice == placeholder:
-                    st.warning("Please select an answer before submitting.")
-                else:
-                    selected_letter = option_mapping.get(user_choice)
-                    st.session_state.selected_answers[st.session_state.question_index] = selected_letter
+        for i, option in enumerate(options):
+        # If no answer has been selected, show an enabled button.
+            if selected is None:
+                if st.button(option, key=f"option_{st.session_state.question_index}_{i}"):
+                    # When clicked, record the answer.
+                    option_selected = option_mapping[option]
+                    st.session_state.selected_answers[st.session_state.question_index] = option_selected
                     correct_answer = str(current_row["correct_answer"]).strip().lower()
-                    if selected_letter == correct_answer:
+                    if option_selected == correct_answer:
+                        st.session_state.results[st.session_state.question_index] = "correct"
                         st.session_state.result_message = "Correct!"
                         st.session_state.result_color = "success"
                         st.session_state.score += 1
-                        st.session_state.results[st.session_state.question_index] = "correct"
                     else:
+                        st.session_state.results[st.session_state.question_index] = "incorrect"
                         st.session_state.result_message = f"Incorrect. The correct answer was: {correct_answer.upper()}"
                         st.session_state.result_color = "error"
-                        st.session_state.results[st.session_state.question_index] = "incorrect"
-                    st.rerun()
+                    st.rerun()  # Immediately update the UI after a selection.
+            else:
+                # If already answered, show the buttons as disabled.
+                st.button(option, key=f"option_{st.session_state.question_index}_{i}", disabled=True)
+            
+
     with col2:
         if answered:  # The user has already answered this question
             # Check if the stored result for this question is correct or incorrect
