@@ -104,6 +104,7 @@ def send_email_with_attachment(to_emails, subject, body, attachment_path):
         st.success("Email sent successfully!")
     except Exception as e:
         st.error(f"Error sending email: {e}")
+        
 # Login screen: asks for passcode and student name.
 def login_screen():
     st.title("Shelf Examination Login")
@@ -185,7 +186,7 @@ def exam_screen():
                     to_emails="ckrawiec@pennstatehealth.psu.edu",
                     subject="Review of an Incorrect Question",
                     body="Please find attached a review document for a question answered incorrectly.",
-                    attachment_path="review.docx"
+                    attachment_path=doc_filename
                 )
                 st.success("Review email sent successfully!")
             except Exception as e:
