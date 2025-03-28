@@ -148,8 +148,8 @@ def exam_screen():
         # The radio widget is disabled if the question has already been answered.
         user_choice = st.radio(
             "Select your answer:", 
-            options, 
-            index=default_index, 
+            radio_options, 
+            index=0, 
             key=f"radio_{st.session_state.question_index}",
             disabled=answered
         )
