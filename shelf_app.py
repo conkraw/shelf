@@ -7,6 +7,15 @@ import random
 from docx import Document
 from docx.shared import Inches
 
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
+import os
+import streamlit as st
+
+
 # Set the wide layout
 st.set_page_config(layout="wide")
 
@@ -64,37 +73,37 @@ def generate_review_doc(row, output_filename="review.docx"):
     return output_filename
 
 # Function to send email with attachment.
-def send_email_with_attachment(recipient, subject, body, attachment_path):
-    import smtplib
-    from email.message import EmailMessage
-    import mimetypes
+def send_email_with_attachment(to_emails, subject, body, attachment_path):
+    # Email credentials from Streamlit secrets
+    from_email = st.secrets["general"]["email"]
+    password = st.secrets["general"]["email_password"]
 
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    msg["From"] = st.secrets["email"]["sender"]  # Configure in your secrets file.
-    msg["To"] = recipient
-    msg.set_content(body)
+    # Create a multipart email message.
+    msg = MIMEMultipart()
+    msg['From'] = from_email
+    msg['To'] = ', '.join(to_emails)
+    msg['Subject'] = subject
 
-    # Read and attach the file.
-    with open(attachment_path, "rb") as f:
-        file_data = f.read()
-        mime_type, _ = mimetypes.guess_type(attachment_path)
-        if mime_type is None:
-            mime_type = "application/octet-stream"
-        maintype, subtype = mime_type.split('/')
-        msg.add_attachment(file_data, maintype=maintype, subtype=subtype, filename=os.path.basename(attachment_path))
+    # Attach the email body (can be HTML if needed).
+    msg.attach(MIMEText(body, 'html'))
 
-    # Connect to SMTP server and send email.
-    smtp_server = st.secrets["email"]["smtp_server"]
-    smtp_port = st.secrets["email"]["smtp_port"]
-    smtp_username = st.secrets["email"]["username"]
-    smtp_password = st.secrets["email"]["password"]
+    # Attach the file (e.g., a Word document) from disk.
+    with open(attachment_path, 'rb') as attachment:
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload(attachment.read())
+        encoders.encode_base64(part)
+        # Use the file's basename as the attachment filename.
+        part.add_header('Content-Disposition', 'attachment', filename=os.path.basename(attachment_path))
+        msg.attach(part)
 
-    with smtplib.SMTP(smtp_server, smtp_port) as server:
-        server.starttls()
-        server.login(smtp_username, smtp_password)
-        server.send_message(msg)
-
+    try:
+        # Connect to Gmail's SMTP server using SSL.
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(from_email, password)
+            server.send_message(msg)
+        st.success("Email sent successfully!")
+    except Exception as e:
+        st.error(f"Error sending email: {e}")
 # Login screen: asks for passcode and student name.
 def login_screen():
     st.title("Shelf Examination Login")
