@@ -141,7 +141,10 @@ def exam_screen():
             st.image(image_path, use_container_width=True)
 
         st.write(current_row["anchor"])
-        
+
+        placeholder = "Select an answer"
+        radio_options = [placeholder] + options
+
         # The radio widget is disabled if the question has already been answered.
         user_choice = st.radio(
             "Select your answer:", 
@@ -153,19 +156,22 @@ def exam_screen():
         # Only allow submission if not answered.
         if not answered:
             if st.button("Submit Answer", key=f"submit_{st.session_state.question_index}"):
-                selected_letter = option_mapping.get(user_choice)
-                st.session_state.selected_answers[st.session_state.question_index] = selected_letter
-                correct_answer = str(current_row["correct_answer"]).strip().lower()
-                if selected_letter == correct_answer:
-                    st.session_state.result_message = "Correct!"
-                    st.session_state.result_color = "success"
-                    st.session_state.score += 1
-                    st.session_state.results[st.session_state.question_index] = "correct"
+                if user_choice == placeholder:
+                    st.warning("Please select an answer before submitting.")
                 else:
-                    st.session_state.result_message = f"Incorrect. The correct answer was: {correct_answer.upper()}"
-                    st.session_state.result_color = "error"
-                    st.session_state.results[st.session_state.question_index] = "incorrect"
-                st.rerun()
+                    selected_letter = option_mapping.get(user_choice)
+                    st.session_state.selected_answers[st.session_state.question_index] = selected_letter
+                    correct_answer = str(current_row["correct_answer"]).strip().lower()
+                    if selected_letter == correct_answer:
+                        st.session_state.result_message = "Correct!"
+                        st.session_state.result_color = "success"
+                        st.session_state.score += 1
+                        st.session_state.results[st.session_state.question_index] = "correct"
+                    else:
+                        st.session_state.result_message = f"Incorrect. The correct answer was: {correct_answer.upper()}"
+                        st.session_state.result_color = "error"
+                        st.session_state.results[st.session_state.question_index] = "incorrect"
+                    st.rerun()
     with col2:
         if answered:  # The user has already answered this question
             # Check if the stored result for this question is correct or incorrect
