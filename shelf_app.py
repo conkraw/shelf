@@ -134,7 +134,7 @@ def exam_screen():
         st.write("**Question:**")
         st.write(current_row["question"])
 
-            # Display image if available.
+        # Display image if available.
         record_id = current_row["record_id"]
         image_path = get_image_path(record_id)
         if image_path:
@@ -146,28 +146,37 @@ def exam_screen():
         # Check if an answer was already selected for this question.
         selected = st.session_state.selected_answers[st.session_state.question_index]
 
+        answer_text_mapping = {}  # Maps the answer text to its letter.
+        options = []
+        for letter in ["a", "b", "c", "d", "e"]:
+            col_name = "answerchoice_" + letter
+            if pd.notna(current_row[col_name]) and str(current_row[col_name]).strip():
+                text = str(current_row[col_name]).strip()
+                options.append(text)
+                answer_text_mapping[text] = letter
+
         for i, option in enumerate(options):
         # If no answer has been selected, show an enabled button.
             if selected is None:
                 if st.button(option, key=f"option_{st.session_state.question_index}_{i}"):
-                    # When clicked, record the answer.
-                    option_selected = option_mapping[option]
-                    st.session_state.selected_answers[st.session_state.question_index] = option_selected
-                    correct_answer = str(current_row["correct_answer"]).strip().lower()
-                    if option_selected == correct_answer:
+                    # Record the selected letter.
+                    selected_letter = answer_text_mapping[option]
+                    st.session_state.selected_answers[st.session_state.question_index] = selected_letter
+                    correct_answer_letter = str(current_row["correct_answer"]).strip().lower()
+                    if selected_letter == correct_answer_letter:
                         st.session_state.results[st.session_state.question_index] = "correct"
                         st.session_state.result_message = "Correct!"
                         st.session_state.result_color = "success"
                         st.session_state.score += 1
                     else:
                         st.session_state.results[st.session_state.question_index] = "incorrect"
-                        st.session_state.result_message = f"Incorrect. The correct answer was: {correct_answer.upper()}"
+                        # Get the correct answer text from the corresponding column.
+                        correct_answer_text = current_row["answerchoice_" + correct_answer_letter]
+                        st.session_state.result_message = f"Incorrect. The correct answer was: {correct_answer_text}"
                         st.session_state.result_color = "error"
-                    st.rerun()  # Immediately update the UI after a selection.
-            else:
-                # If already answered, show the buttons as disabled.
-                st.button(option, key=f"option_{st.session_state.question_index}_{i}", disabled=True)
-            
+                    st.rerun()
+             else:
+                        st.button(option, key=f"option_{st.session_state.question_index}_{i}", disabled=True)                
 
     with col2:
         if answered:  # The user has already answered this question
