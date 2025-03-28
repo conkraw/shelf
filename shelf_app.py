@@ -182,7 +182,7 @@ def exam_screen():
             # Send email.
             try:
                 send_email_with_attachment(
-                    recipient="ckrawiec@pennstatehealth.psu.edu",
+                    to_emails="ckrawiec@pennstatehealth.psu.edu",
                     subject="Review of an Incorrect Question",
                     body="Please find attached a review document for a question answered incorrectly.",
                     attachment_path="review.docx"
