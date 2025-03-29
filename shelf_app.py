@@ -210,7 +210,7 @@ def exam_screen():
             # Choose one random wrong question.
             selected_index = random.choice(wrong_indices)
             selected_row = df.iloc[selected_index]
-            user_selected_letter = st.session_state.selected_answers[question_index]
+            user_selected_letter = st.session_state.selected_answers[selected_index]
             # Generate review document.
             doc_filename = f"review_q{selected_index+1}.docx"
             generate_review_doc(selected_row, user_selected_letter, output_filename=doc_filename)
