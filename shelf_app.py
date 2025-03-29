@@ -217,12 +217,13 @@ def login_screen():
         st.session_state.user_name = user_name
         
         # Load combined CSV data.
-        df = load_data()
+        df = load_data()  # Loads all CSV files in the current folder.
         total_questions = len(df)
         st.session_state.df = df
         st.session_state.results = [None] * total_questions
         st.session_state.selected_answers = [None] * total_questions
-        st.session_state.result_messages = ["" for _ in range(total_questions)]
+        st.session_state.result_messages = ["" for _ in range(total_questions)]  # Initialize result_messages!
+        st.session_state.result_message = ""
         st.session_state.result_color = ""
         
         # Try to load any previously saved exam state.
