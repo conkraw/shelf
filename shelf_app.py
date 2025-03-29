@@ -21,6 +21,39 @@ from firebase_admin import credentials, firestore
 # Set the wide layout
 st.set_page_config(layout="wide")
 
+def get_user_key():
+    # Combine assigned passcode and user name to form a unique key.
+    # Adjust this logic as needed.
+    return f"{st.session_state.assigned_passcode}_{st.session_state.user_name}"
+
+def save_exam_state():
+    """
+    Saves the current exam state to Firestore under a document keyed by the user's unique key.
+    """
+    user_key = get_user_key()
+    data = {
+        "question_index": st.session_state.question_index,
+        "score": st.session_state.score,
+        "results": st.session_state.results,
+        "selected_answers": st.session_state.selected_answers,
+        "timestamp": firestore.SERVER_TIMESTAMP
+    }
+    db.collection("exam_sessions").document(user_key).set(data)
+
+def load_exam_state():
+    """
+    Loads the exam state from Firestore (if it exists) and updates session_state.
+    """
+    user_key = get_user_key()
+    doc_ref = db.collection("exam_sessions").document(user_key)
+    doc = doc_ref.get()
+    if doc.exists:
+        data = doc.to_dict()
+        st.session_state.question_index = data.get("question_index", 0)
+        st.session_state.score = data.get("score", 0)
+        st.session_state.results = data.get("results", [None] * len(st.session_state.df))
+        st.session_state.selected_answers = data.get("selected_answers", [None] * len(st.session_state.df))
+        
 firebase_creds = st.secrets["firebase_service_account"].to_dict()
 if not firebase_admin._apps:
     cred = credentials.Certificate(firebase_creds)
@@ -189,15 +222,10 @@ def login_screen():
     user_name = st.text_input("Enter your name")
     
     if st.button("Login"):
-        # Check that the recipients mapping exists (if you use it for recipient lookup).
+        # Check that the recipients mapping exists.
         if "recipients" not in st.secrets:
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
-        
-        # Optionally, if you want to prevent reuse right away, you can check Firestore:
-        # if db.collection("shelf_records").document(passcode_input).get().exists:
-        #     st.error("This passcode has already been used.")
-        #     return
         
         if passcode_input not in st.secrets["recipients"]:
             st.error("Invalid passcode. Please try again.")
@@ -207,18 +235,14 @@ def login_screen():
             st.error("Please enter your name to proceed.")
             return
         
-        # Store the assigned passcode in session state for later use.
+        # Store the assigned passcode and recipient email in session state.
         st.session_state.assigned_passcode = passcode_input
-        
-        # Retrieve the recipient email based on the entered passcode.
         recipient_email = st.secrets["recipients"][passcode_input]
+        st.session_state.recipient_email = recipient_email
         
         # Successful login: initialize exam state.
         st.session_state.authenticated = True
         st.session_state.user_name = user_name
-        st.session_state.recipient_email = recipient_email  # For email-sending later.
-        st.session_state.question_index = 0
-        st.session_state.score = 0
         
         # Load combined data from CSVs.
         df = load_data()  # Loads all CSV files in the current folder.
@@ -228,6 +252,10 @@ def login_screen():
         st.session_state.selected_answers = [None] * total_questions
         st.session_state.result_message = ""
         st.session_state.result_color = ""
+        
+        # Try to load saved exam state from Firestore.
+        load_exam_state()
+        
         st.rerun()
 
 
@@ -374,6 +402,9 @@ def exam_screen():
                         correct_answer_text = letter_to_answer.get(correct_answer_letter, "")
                         st.session_state.result_message = f"Incorrect. The correct answer was: {correct_answer_text}"
                         st.session_state.result_color = "error"
+
+                    save_exam_state()
+
                     st.rerun()
             else:
                 st.button(option, key=f"option_{st.session_state.question_index}_{i}", disabled=True)
