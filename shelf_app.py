@@ -53,11 +53,8 @@ def initialize_state():
         st.session_state.result_color = ""
         
 def get_user_key():
-    """
-    Returns a unique key for the exam session by combining
-    the assigned passcode and user name.
-    """
-    return f"{st.session_state.assigned_passcode}_{st.session_state.user_name}"
+    # Use only the assigned passcode as the unique key.
+    return str(st.session_state.assigned_passcode)
 
 def save_exam_state():
     """
