@@ -15,9 +15,32 @@ from email import encoders
 import os
 import streamlit as st
 
+import firebase_admin
+from firebase_admin import credentials, firestore
 
 # Set the wide layout
 st.set_page_config(layout="wide")
+
+firebase_creds = st.secrets["firebase_service_account"].to_dict()
+if not firebase_admin._apps:
+    cred = credentials.Certificate(firebase_creds)
+    firebase_admin.initialize_app(cred)
+
+db = firestore.client()
+
+
+def check_and_add_record(record_id):
+    # Ensure the record_id is a string
+    record_id_str = str(record_id)
+    doc_ref = db.collection("shelf_records").document(record_id_str)
+    
+    # If the record does not exist, add it
+    if not doc_ref.get().exists:
+        # Optionally, you can add additional data (like a timestamp) in the document
+        doc_ref.set({"processed": True})
+        return False  # Indicates the record was not previously processed
+    else:
+        return True  # Indicates the record already exists
 
 # Helper function: search for an image file based on record_id.
 def get_image_path(record_id, folder="images"):
@@ -147,13 +170,16 @@ def login_screen():
     user_name = st.text_input("Enter your name")
     
     if st.button("Login"):
-        # Check if the recipients mapping exists in secrets.
+        # Check that the recipients mapping exists (if you use it for recipient lookup).
         if "recipients" not in st.secrets:
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
         
-        # Use the entered passcode to lookup the recipient email.
-        # (This passcode is an assigned one, not necessarily the literal word "password".)
+        # Optionally, if you want to prevent reuse right away, you can check Firestore:
+        # if db.collection("shelf_records").document(passcode_input).get().exists:
+        #     st.error("This passcode has already been used.")
+        #     return
+        
         if passcode_input not in st.secrets["recipients"]:
             st.error("Invalid passcode. Please try again.")
             return
@@ -162,18 +188,21 @@ def login_screen():
             st.error("Please enter your name to proceed.")
             return
         
-        # Retrieve the recipient email based on the entered assigned passcode.
+        # Store the assigned passcode in session state for later use.
+        st.session_state.assigned_passcode = passcode_input
+        
+        # Retrieve the recipient email based on the entered passcode.
         recipient_email = st.secrets["recipients"][passcode_input]
         
         # Successful login: initialize exam state.
         st.session_state.authenticated = True
         st.session_state.user_name = user_name
-        st.session_state.recipient_email = recipient_email  # Save the recipient email for later use.
+        st.session_state.recipient_email = recipient_email  # For email-sending later.
         st.session_state.question_index = 0
         st.session_state.score = 0
         
-        # Load combined data from all CSV files.
-        df = load_data()  # This loads all CSV files in the current folder.
+        # Load combined data from CSVs.
+        df = load_data()  # Loads all CSV files in the current folder.
         total_questions = len(df)
         st.session_state.df = df
         st.session_state.results = [None] * total_questions
@@ -181,6 +210,7 @@ def login_screen():
         st.session_state.result_message = ""
         st.session_state.result_color = ""
         st.rerun()
+
 
 
 # Exam screen: shows navigation, question, answer options, result, and explanation.
@@ -211,6 +241,12 @@ def exam_screen():
         st.header("Exam Completed")
         percentage = (st.session_state.score / total_questions) * 100
         st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}** ({percentage:.1f}%).")
+
+        used = check_and_add_record(st.session_state.assigned_passcode)
+            if not used:
+                st.success("Your passcode has now been locked and cannot be used again.")
+            else:
+                st.info("This passcode had already been locked.")
 
         wrong_indices = [i for i, result in enumerate(st.session_state.results) if result == "incorrect"]
         if wrong_indices:
