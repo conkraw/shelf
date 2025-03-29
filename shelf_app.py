@@ -27,7 +27,31 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 ### Helper functions to manage exam state in Firestore
-
+def initialize_state():
+    # Initialize default keys if they don't exist
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if "score" not in st.session_state:
+        st.session_state.score = 0
+    if "question_index" not in st.session_state:
+        st.session_state.question_index = 0
+    if "results" not in st.session_state:
+        st.session_state.results = []
+    if "selected_answers" not in st.session_state:
+        st.session_state.selected_answers = []
+    if "user_name" not in st.session_state:
+        st.session_state.user_name = ""
+    if "assigned_passcode" not in st.session_state:
+        st.session_state.assigned_passcode = ""
+    if "recipient_email" not in st.session_state:
+        st.session_state.recipient_email = ""
+    if "df" not in st.session_state:
+        st.session_state.df = None
+    if "result_message" not in st.session_state:
+        st.session_state.result_message = ""
+    if "result_color" not in st.session_state:
+        st.session_state.result_color = ""
+        
 def get_user_key():
     """
     Returns a unique key for the exam session by combining
@@ -352,13 +376,7 @@ def exam_screen():
                 st.rerun()
 
 def main():
-    # Initialize default state if not already set.
-    if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
-    if "question_index" not in st.session_state:
-        st.session_state.question_index = 0
-    # (Optionally, initialize other keys as needed.)
-    
+    initialize_state()
     if not st.session_state.authenticated:
         login_screen()
     else:
