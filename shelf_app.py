@@ -41,16 +41,35 @@ def load_data(pattern="*.csv"):
     combined_df["record_id"] = combined_df.index + 1
     return combined_df
 
-# Create a Word document from a question row.
-def generate_review_doc(row, output_filename="review.docx"):
+
+def generate_review_doc(row, user_selected_letter, output_filename="review.docx"):
+    """
+    Generate a Word document that contains:
+      - The question with record_id,
+      - The question stem,
+      - An image (if available),
+      - All answer choices,
+      - The student's selected answer,
+      - The correct answer (full text), and
+      - The explanation.
+    
+    Parameters:
+      row (pd.Series): A row from the DataFrame containing the question data.
+      user_selected_letter (str): The letter corresponding to the user's answer (e.g., "a", "b", etc.).
+      output_filename (str): The filename to save the Word document.
+      
+    Returns:
+      output_filename (str): The path of the generated document.
+    """
     doc = Document()
     doc.add_heading("Review of Incorrect Question", level=1)
-
-    # Question stem.
-    doc.add_heading("Question:", level=2)
-    doc.add_paragraph(row["question"])
     
-    # If an image exists, add it.
+    # Heading with record_id and question number.
+    doc.add_heading(f"Question {row['record_id']}:", level=2)
+    doc.add_paragraph(row["question"])
+    doc.add_paragraph(row["anchor"])
+    
+    # Add image if available.
     image_path = get_image_path(row["record_id"])
     if image_path:
         try:
@@ -58,19 +77,34 @@ def generate_review_doc(row, output_filename="review.docx"):
         except Exception as e:
             doc.add_paragraph(f"(Image could not be added: {e})")
     
-    # Answer choices.
+    # List answer choices.
     doc.add_heading("Answer Choices:", level=2)
     for letter in ["a", "b", "c", "d", "e"]:
         col_name = "answerchoice_" + letter
         if pd.notna(row[col_name]) and str(row[col_name]).strip():
             doc.add_paragraph(f"{letter.upper()}: {row[col_name]}")
     
-    # Explanation.
+    # Add the student's selected answer.
+    doc.add_heading("Your Answer:", level=2)
+    if user_selected_letter:
+        user_answer_text = row.get("answerchoice_" + user_selected_letter, "N/A")
+        doc.add_paragraph(user_answer_text)
+    else:
+        doc.add_paragraph("No answer selected.")
+    
+    # Add the correct answer.
+    correct_letter = str(row["correct_answer"]).strip().lower()
+    correct_answer_text = row.get("answerchoice_" + correct_letter, "N/A")
+    doc.add_heading("Correct Answer:", level=2)
+    doc.add_paragraph(correct_answer_text)
+    
+    # Add the explanation.
     doc.add_heading("Explanation:", level=2)
     doc.add_paragraph(row["answer_explanation"])
     
     doc.save(output_filename)
     return output_filename
+
 
 # Function to send email with attachment.
 def send_email_with_attachment(to_emails, subject, body, attachment_path):
