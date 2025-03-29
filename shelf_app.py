@@ -32,6 +32,7 @@ db = firestore.client()
 def check_and_add_passcode(passcode):
     """
     Checks if the given passcode has been used. If not, it adds the passcode to Firestore.
+    Special case: if the passcode is "password", always allow access.
     
     Parameters:
         passcode (str): The assigned passcode.
@@ -39,9 +40,15 @@ def check_and_add_passcode(passcode):
     Returns:
         False if the passcode was not previously used (and it is now added),
         True if the passcode was already present.
+        For the special passcode "password", it always returns False.
     """
     # Ensure the passcode is a string.
     passcode_str = str(passcode)
+    
+    # If the passcode is the special case "password", always allow access.
+    if passcode_str.lower() == "password":
+        return False  # Always allow access for "password"
+    
     doc_ref = db.collection("shelf_records").document(passcode_str)
     
     # Check if the document exists.
@@ -51,6 +58,7 @@ def check_and_add_passcode(passcode):
         return False  # Indicates the passcode was not previously used.
     else:
         return True  # Indicates the passcode has already been used.
+
 
 
 # Helper function: search for an image file based on record_id.
