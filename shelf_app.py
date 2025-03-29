@@ -12,23 +12,33 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
-import os
-import streamlit as st
 
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# Set the wide layout
+# Set wide layout
 st.set_page_config(layout="wide")
 
+# Initialize Firebase if not already done.
+firebase_creds = st.secrets["firebase_service_account"].to_dict()
+if not firebase_admin._apps:
+    cred = credentials.Certificate(firebase_creds)
+    firebase_admin.initialize_app(cred)
+db = firestore.client()
+
+### Helper functions to manage exam state in Firestore
+
 def get_user_key():
-    # Combine assigned passcode and user name to form a unique key.
-    # Adjust this logic as needed.
+    """
+    Returns a unique key for the exam session by combining
+    the assigned passcode and user name.
+    """
     return f"{st.session_state.assigned_passcode}_{st.session_state.user_name}"
 
 def save_exam_state():
     """
-    Saves the current exam state to Firestore under a document keyed by the user's unique key.
+    Saves the current exam state to Firestore under a document
+    keyed by the user's unique key.
     """
     user_key = get_user_key()
     data = {
@@ -42,7 +52,8 @@ def save_exam_state():
 
 def load_exam_state():
     """
-    Loads the exam state from Firestore (if it exists) and updates session_state.
+    Loads the exam state from Firestore (if it exists) and updates
+    the session state accordingly.
     """
     user_key = get_user_key()
     doc_ref = db.collection("exam_sessions").document(user_key)
@@ -51,50 +62,27 @@ def load_exam_state():
         data = doc.to_dict()
         st.session_state.question_index = data.get("question_index", 0)
         st.session_state.score = data.get("score", 0)
-        st.session_state.results = data.get("results", [None] * len(st.session_state.df))
-        st.session_state.selected_answers = data.get("selected_answers", [None] * len(st.session_state.df))
-        
-firebase_creds = st.secrets["firebase_service_account"].to_dict()
-if not firebase_admin._apps:
-    cred = credentials.Certificate(firebase_creds)
-    firebase_admin.initialize_app(cred)
+        # If for some reason these are missing, default to the current length of df.
+        st.session_state.results = data.get("results", st.session_state.results)
+        st.session_state.selected_answers = data.get("selected_answers", st.session_state.selected_answers)
 
-db = firestore.client()
-
+### Other helper functions
 
 def check_and_add_passcode(passcode):
     """
-    Checks if the given passcode has been used. If not, it adds the passcode to Firestore.
-    Special case: if the passcode is "password", always allow access.
-    
-    Parameters:
-        passcode (str): The assigned passcode.
-        
-    Returns:
-        False if the passcode was not previously used (and it is now added),
-        True if the passcode was already present.
-        For the special passcode "password", it always returns False.
+    Checks if the given passcode has been used. If not, it adds the passcode
+    to Firestore. Special case: if the passcode is "password", always allow access.
     """
-    # Ensure the passcode is a string.
     passcode_str = str(passcode)
-    
-    # If the passcode is the special case "password", always allow access.
     if passcode_str.lower() == "password":
-        return False  # Always allow access for "password"
-    
+        return False  # Always allow "password"
     doc_ref = db.collection("shelf_records").document(passcode_str)
-    
-    # Check if the document exists.
     if not doc_ref.get().exists:
-        # Add the passcode document to indicate it has been used.
         doc_ref.set({"processed": True})
-        return False  # Indicates the passcode was not previously used.
+        return False
     else:
-        return True  # Indicates the passcode has already been used.
+        return True
 
-
-
-# Helper function: search for an image file based on record_id.
 def get_image_path(record_id, folder="images"):
     extensions = ["jpg", "jpeg", "png", "gif"]
     for ext in extensions:
@@ -104,42 +92,16 @@ def get_image_path(record_id, folder="images"):
             return matches[0]
     return None
 
-# Load the CSV file.
 def load_data(pattern="*.csv"):
-    # Get a list of all CSV files matching the pattern.
     csv_files = glob.glob(pattern)
-    # Load each CSV into a DataFrame.
     dfs = [pd.read_csv(file) for file in csv_files]
-    # Combine all DataFrames together.
     combined_df = pd.concat(dfs, ignore_index=True)
-    # Renumber record_id from 1 to number of rows.
     combined_df["record_id"] = combined_df.index + 1
     return combined_df
 
-
 def generate_review_doc(row, user_selected_letter, output_filename="review.docx"):
-    """
-    Generate a Word document that contains:
-      - The question with record_id,
-      - The question stem,
-      - An image (if available),
-      - All answer choices,
-      - The student's selected answer,
-      - The correct answer (full text), and
-      - The explanation.
-    
-    Parameters:
-      row (pd.Series): A row from the DataFrame containing the question data.
-      user_selected_letter (str): The letter corresponding to the user's answer (e.g., "a", "b", etc.).
-      output_filename (str): The filename to save the Word document.
-      
-    Returns:
-      output_filename (str): The path of the generated document.
-    """
     doc = Document()
     doc.add_heading("Review of Incorrect Question", level=1)
-    
-    # Heading with record_id and question number.
     doc.add_heading(f"Question {row['record_id']}:", level=2)
     doc.add_paragraph(row["question"])
     
@@ -150,8 +112,10 @@ def generate_review_doc(row, user_selected_letter, output_filename="review.docx"
             doc.add_picture(image_path, width=Inches(4))
         except Exception as e:
             doc.add_paragraph(f"(Image could not be added: {e})")
-
-    doc.add_paragraph(row["anchor"])
+    
+    # Add the anchor (if present).
+    if "anchor" in row:
+        doc.add_paragraph(row["anchor"])
     
     # List answer choices.
     doc.add_heading("Answer Choices:", level=2)
@@ -160,7 +124,7 @@ def generate_review_doc(row, user_selected_letter, output_filename="review.docx"
         if pd.notna(row[col_name]) and str(row[col_name]).strip():
             doc.add_paragraph(f"{letter.upper()}: {row[col_name]}")
     
-    # Add the student's selected answer.
+    # Student's selected answer.
     doc.add_heading("Student Answer:", level=2)
     if user_selected_letter:
         user_answer_text = row.get("answerchoice_" + user_selected_letter, "N/A")
@@ -168,84 +132,71 @@ def generate_review_doc(row, user_selected_letter, output_filename="review.docx"
     else:
         doc.add_paragraph("No answer selected.")
     
-    # Add the correct answer.
+    # Correct answer.
     correct_letter = str(row["correct_answer"]).strip().lower()
     correct_answer_text = row.get("answerchoice_" + correct_letter, "N/A")
     doc.add_heading("Correct Answer:", level=2)
     doc.add_paragraph(correct_answer_text)
     
-    # Add the explanation.
+    # Explanation.
     doc.add_heading("Explanation:", level=2)
     doc.add_paragraph(row["answer_explanation"])
     
     doc.save(output_filename)
     return output_filename
 
-
-# Function to send email with attachment.
 def send_email_with_attachment(to_emails, subject, body, attachment_path):
-    # Email credentials from Streamlit secrets
     from_email = st.secrets["general"]["email"]
     password = st.secrets["general"]["email_password"]
-
-    # Create a multipart email message.
+    
     msg = MIMEMultipart()
     msg['From'] = from_email
     msg['To'] = ', '.join(to_emails)
     msg['Subject'] = subject
-
-    # Attach the email body (can be HTML if needed).
     msg.attach(MIMEText(body, 'html'))
-
-    # Attach the file (e.g., a Word document) from disk.
+    
     with open(attachment_path, 'rb') as attachment:
         part = MIMEBase('application', 'octet-stream')
         part.set_payload(attachment.read())
         encoders.encode_base64(part)
         part.add_header('Content-Disposition', 'attachment', filename=os.path.basename(attachment_path))
         msg.attach(part)
-
+    
     try:
-        # Connect to Gmail's SMTP server using SSL.
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(from_email, password)
-            # Explicitly pass sender and recipients:
             server.send_message(msg, from_addr=from_email, to_addrs=to_emails)
         st.success("Email sent successfully!")
     except Exception as e:
         st.error(f"Error sending email: {e}")
-        
-# Login screen: asks for passcode and student name.
+
+### Login Screen
+
 def login_screen():
     st.title("Shelf Examination Login")
     passcode_input = st.text_input("Enter your assigned passcode", type="password")
     user_name = st.text_input("Enter your name")
     
     if st.button("Login"):
-        # Check that the recipients mapping exists.
         if "recipients" not in st.secrets:
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
-        
         if passcode_input not in st.secrets["recipients"]:
             st.error("Invalid passcode. Please try again.")
             return
-        
         if not user_name:
             st.error("Please enter your name to proceed.")
             return
         
-        # Store the assigned passcode and recipient email in session state.
         st.session_state.assigned_passcode = passcode_input
         recipient_email = st.secrets["recipients"][passcode_input]
         st.session_state.recipient_email = recipient_email
         
-        # Successful login: initialize exam state.
         st.session_state.authenticated = True
         st.session_state.user_name = user_name
         
-        # Load combined data from CSVs.
-        df = load_data()  # Loads all CSV files in the current folder.
+        # Load combined CSV data.
+        df = load_data()
         total_questions = len(df)
         st.session_state.df = df
         st.session_state.results = [None] * total_questions
@@ -253,23 +204,21 @@ def login_screen():
         st.session_state.result_message = ""
         st.session_state.result_color = ""
         
-        # Try to load saved exam state from Firestore.
+        # Try to load any previously saved exam state.
         load_exam_state()
         
         st.rerun()
 
+### Exam Screen
 
-
-# Exam screen: shows navigation, question, answer options, result, and explanation.
 def exam_screen():
     st.title("Shelf Examination Application")
     st.write(f"Welcome, **{st.session_state.user_name}**!")
     
-    # Load the dataset.
-    df = load_data()  # This loads all CSV files in the current folder.
+    df = st.session_state.df
     total_questions = len(df)
-
-    # Sidebar: Clickable navigation buttons for each question.
+    
+    # Sidebar navigation.
     with st.sidebar:
         st.header("Navigation")
         for i in range(total_questions):
@@ -284,28 +233,25 @@ def exam_screen():
                 st.session_state.question_index = i
                 st.rerun()
     
+    # If exam is completed.
     if st.session_state.question_index >= total_questions:
-        st.header("Exam Completed")
         percentage = (st.session_state.score / total_questions) * 100
+        st.header("Exam Completed")
         st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}** ({percentage:.1f}%).")
-
+        
         used = check_and_add_passcode(st.session_state.assigned_passcode)
         if not used:
             st.success("Your passcode has now been locked and cannot be used again.")
         else:
             st.info("This passcode had already been locked.")
-
+        
         wrong_indices = [i for i, result in enumerate(st.session_state.results) if result == "incorrect"]
         if wrong_indices:
-            # Choose one random wrong question.
             selected_index = random.choice(wrong_indices)
             selected_row = df.iloc[selected_index]
             user_selected_letter = st.session_state.selected_answers[selected_index]
-            # Generate review document.
             doc_filename = f"review_q{selected_index+1}.docx"
             generate_review_doc(selected_row, user_selected_letter, output_filename=doc_filename)
-            
-            # Send email.
             try:
                 send_email_with_attachment(
                     to_emails=[st.session_state.recipient_email],
@@ -319,13 +265,9 @@ def exam_screen():
         else:
             st.info("No incorrect answers to review!")
         return
-
-
-
-    # Get the current question row.
-    current_row = df.iloc[st.session_state.question_index]
     
-    # Build answer options from the CSV columns.
+    # Display current question.
+    current_row = df.iloc[st.session_state.question_index]
     option_cols = [
         ("a", current_row["answerchoice_a"]),
         ("b", current_row["answerchoice_b"]),
@@ -334,14 +276,13 @@ def exam_screen():
         ("e", current_row["answerchoice_e"]),
     ]
     options = []
-    option_mapping = {}  # Maps full option text back to its letter.
+    option_mapping = {}
     for letter, text in option_cols:
         if pd.notna(text) and str(text).strip():
             option_text = f"{letter.upper()}. {text.strip()}"
             options.append(option_text)
             option_mapping[option_text] = letter
     
-    # Check if the current question was already answered.
     answered = st.session_state.selected_answers[st.session_state.question_index] is not None
     default_index = 0
     if answered:
@@ -354,26 +295,18 @@ def exam_screen():
         if default_option in options:
             default_index = options.index(default_option)
     
-    # Layout: two columns for question/answer and for result/explanation.
     col1, col2 = st.columns(2)
     with col1:
         st.write("**Question:**")
         st.write(current_row["question"])
-
-        # Display image if available.
         record_id = current_row["record_id"]
         image_path = get_image_path(record_id)
         if image_path:
             st.image(image_path, use_container_width=True)
-
         st.write(current_row["anchor"])
-
         st.write("**Select your answer:**")
-        # Check if an answer was already selected for this question.
-        selected = st.session_state.selected_answers[st.session_state.question_index]
-
-        answer_text_mapping = {}   # Maps answer text to its letter.
-        letter_to_answer = {}      # Maps letter to the full answer text.
+        answer_text_mapping = {}
+        letter_to_answer = {}
         options = []
         for letter in ["a", "b", "c", "d", "e"]:
             col_name = "answerchoice_" + letter
@@ -381,13 +314,10 @@ def exam_screen():
                 text = str(current_row[col_name]).strip()
                 options.append(text)
                 answer_text_mapping[text] = letter
-                letter_to_answer[letter] = text  # store the full answer text
-        
-        # Display answer buttons.
+                letter_to_answer[letter] = text
         for i, option in enumerate(options):
-            if selected is None:
+            if not answered:
                 if st.button(option, key=f"option_{st.session_state.question_index}_{i}"):
-                    # Record the selected letter.
                     selected_letter = answer_text_mapping[option]
                     st.session_state.selected_answers[st.session_state.question_index] = selected_letter
                     correct_answer_letter = str(current_row["correct_answer"]).strip().lower()
@@ -398,37 +328,29 @@ def exam_screen():
                         st.session_state.score += 1
                     else:
                         st.session_state.results[st.session_state.question_index] = "incorrect"
-                        # Get the correct answer text using the reverse mapping.
                         correct_answer_text = letter_to_answer.get(correct_answer_letter, "")
                         st.session_state.result_message = f"Incorrect. The correct answer was: {correct_answer_text}"
                         st.session_state.result_color = "error"
-
-                    save_exam_state()
-
+                    save_exam_state()  # Save progress after each answer submission.
                     st.rerun()
             else:
                 st.button(option, key=f"option_{st.session_state.question_index}_{i}", disabled=True)
-        with col2:
-            if answered:  # The user has already answered this question
-                if st.session_state.results[st.session_state.question_index] == "correct":
-                    st.success(st.session_state.result_message)
-                elif st.session_state.results[st.session_state.question_index] == "incorrect":
-                    st.error(st.session_state.result_message)
-                
-                st.write("**Explanation:**")
-                st.write(current_row["answer_explanation"])
-                if st.button("Next Question"):
-                    # Move to the next question
-                    st.session_state.question_index += 1
-                    # Reset any relevant session state fields
-                    st.session_state.result_message = ""
-                    st.session_state.result_color = ""
-                    st.rerun()
-            
-            # Next Question button.
+    
+    with col2:
+        if answered:
+            if st.session_state.results[st.session_state.question_index] == "correct":
+                st.success(st.session_state.result_message)
+            elif st.session_state.results[st.session_state.question_index] == "incorrect":
+                st.error(st.session_state.result_message)
+            st.write("**Explanation:**")
+            st.write(current_row["answer_explanation"])
+            if st.button("Next Question"):
+                st.session_state.question_index += 1
+                st.session_state.result_message = ""
+                st.session_state.result_color = ""
+                save_exam_state()  # Save progress when moving to the next question.
+                st.rerun()
 
-
-# Main function: display login screen if not authenticated; else exam screen.
 def main():
     if "authenticated" not in st.session_state or not st.session_state.authenticated:
         login_screen()
@@ -437,4 +359,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
