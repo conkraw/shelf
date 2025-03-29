@@ -142,16 +142,17 @@ def send_email_with_attachment(to_emails, subject, body, attachment_path):
 # Login screen: asks for passcode and student name.
 def login_screen():
     st.title("Shelf Examination Login")
-    passcode_input = st.text_input("Enter passcode", type="password")
+    passcode_input = st.text_input("Enter your assigned passcode", type="password")
     user_name = st.text_input("Enter your name")
     
     if st.button("Login"):
-        # Check that the recipients mapping exists in secrets.
+        # Check if the recipients mapping exists in secrets.
         if "recipients" not in st.secrets:
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
         
-        # Validate the passcode: it must match one of the keys in the [recipients] section.
+        # Use the entered passcode to lookup the recipient email.
+        # (This passcode is an assigned one, not necessarily the literal word "password".)
         if passcode_input not in st.secrets["recipients"]:
             st.error("Invalid passcode. Please try again.")
             return
@@ -160,7 +161,7 @@ def login_screen():
             st.error("Please enter your name to proceed.")
             return
         
-        # Retrieve the recipient email based on the entered passcode.
+        # Retrieve the recipient email based on the entered assigned passcode.
         recipient_email = st.secrets["recipients"][passcode_input]
         
         # Successful login: initialize exam state.
@@ -179,6 +180,7 @@ def login_screen():
         st.session_state.result_message = ""
         st.session_state.result_color = ""
         st.rerun()
+
 
 # Exam screen: shows navigation, question, answer options, result, and explanation.
 def exam_screen():
