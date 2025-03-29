@@ -254,10 +254,10 @@ def exam_screen():
         st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}** ({percentage:.1f}%).")
 
         used = check_and_add_passcode(st.session_state.assigned_passcode)
-            if not used:
-                st.success("Your passcode has now been locked and cannot be used again.")
-            else:
-                st.info("This passcode had already been locked.")
+        if not used:
+            st.success("Your passcode has now been locked and cannot be used again.")
+        else:
+            st.info("This passcode had already been locked.")
 
         wrong_indices = [i for i, result in enumerate(st.session_state.results) if result == "incorrect"]
         if wrong_indices:
