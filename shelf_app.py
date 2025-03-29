@@ -146,30 +146,34 @@ def login_screen():
     user_name = st.text_input("Enter your name")
     
     if st.button("Login"):
-        # Check passcode in the [default] section of secrets.
-        if "default" in st.secrets and "passcode" in st.secrets["default"]:
-            secret_passcode = st.secrets["default"]["passcode"]
-        else:
-            st.error("Passcode not configured. Please set it in your secrets file.")
+        # Check that the recipients mapping exists in secrets.
+        if "recipients" not in st.secrets:
+            st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
         
-        if passcode_input != secret_passcode:
+        # Validate the passcode: it must match one of the keys in the [recipients] section.
+        if passcode_input not in st.secrets["recipients"]:
             st.error("Invalid passcode. Please try again.")
             return
+        
         if not user_name:
             st.error("Please enter your name to proceed.")
             return
         
+        # Retrieve the recipient email based on the entered passcode.
+        recipient_email = st.secrets["recipients"][passcode_input]
+        
         # Successful login: initialize exam state.
         st.session_state.authenticated = True
         st.session_state.user_name = user_name
+        st.session_state.recipient_email = recipient_email  # Save the recipient email for later use.
         st.session_state.question_index = 0
         st.session_state.score = 0
-        # We'll track for each question:
-        #   - results: "correct", "incorrect", or None.
-        #   - selected_answers: the letter the student chose.
+        
+        # Load combined data from all CSV files.
         df = load_data()  # This loads all CSV files in the current folder.
         total_questions = len(df)
+        st.session_state.df = df
         st.session_state.results = [None] * total_questions
         st.session_state.selected_answers = [None] * total_questions
         st.session_state.result_message = ""
