@@ -42,7 +42,7 @@ def load_data(pattern="*.csv"):
     return combined_df
 
 
-def generate_review_doc(row, selected_letter, output_filename="review.docx"):
+def generate_review_doc(row, user_selected_letter, output_filename="review.docx"):
     """
     Generate a Word document that contains:
       - The question with record_id,
@@ -86,7 +86,7 @@ def generate_review_doc(row, selected_letter, output_filename="review.docx"):
     
     # Add the student's selected answer.
     doc.add_heading("Your Answer:", level=2)
-    if selected_letter:
+    if user_selected_letter:
         user_answer_text = row.get("answerchoice_" + user_selected_letter, "N/A")
         doc.add_paragraph(user_answer_text)
     else:
@@ -212,7 +212,7 @@ def exam_screen():
             selected_row = df.iloc[selected_index]
             # Generate review document.
             doc_filename = f"review_q{selected_index+1}.docx"
-            generate_review_doc(selected_row, output_filename=doc_filename)
+            generate_review_doc(selected_row, user_selected_letter, output_filename=doc_filename)
             
             # Send email.
             try:
