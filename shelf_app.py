@@ -29,18 +29,29 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 
-def check_and_add_record(record_id):
-    # Ensure the record_id is a string
-    record_id_str = str(record_id)
-    doc_ref = db.collection("shelf_records").document(record_id_str)
+def check_and_add_passcode(passcode):
+    """
+    Checks if the given passcode has been used. If not, it adds the passcode to Firestore.
     
-    # If the record does not exist, add it
+    Parameters:
+        passcode (str): The assigned passcode.
+        
+    Returns:
+        False if the passcode was not previously used (and it is now added),
+        True if the passcode was already present.
+    """
+    # Ensure the passcode is a string.
+    passcode_str = str(passcode)
+    doc_ref = db.collection("shelf_records").document(passcode_str)
+    
+    # Check if the document exists.
     if not doc_ref.get().exists:
-        # Optionally, you can add additional data (like a timestamp) in the document
+        # Add the passcode document to indicate it has been used.
         doc_ref.set({"processed": True})
-        return False  # Indicates the record was not previously processed
+        return False  # Indicates the passcode was not previously used.
     else:
-        return True  # Indicates the record already exists
+        return True  # Indicates the passcode has already been used.
+
 
 # Helper function: search for an image file based on record_id.
 def get_image_path(record_id, folder="images"):
@@ -242,7 +253,7 @@ def exam_screen():
         percentage = (st.session_state.score / total_questions) * 100
         st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}** ({percentage:.1f}%).")
 
-        used = check_and_add_record(st.session_state.assigned_passcode)
+        used = check_and_add_passcode(st.session_state.assigned_passcode)
             if not used:
                 st.success("Your passcode has now been locked and cannot be used again.")
             else:
