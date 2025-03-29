@@ -352,11 +352,18 @@ def exam_screen():
                 st.rerun()
 
 def main():
-    if "authenticated" not in st.session_state or not st.session_state.authenticated:
+    # Initialize default state if not already set.
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if "question_index" not in st.session_state:
+        st.session_state.question_index = 0
+    # (Optionally, initialize other keys as needed.)
+    
+    if not st.session_state.authenticated:
         login_screen()
     else:
         exam_screen()
-
+        
 if __name__ == "__main__":
     main()
 
