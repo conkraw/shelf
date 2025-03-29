@@ -58,36 +58,33 @@ def get_user_key():
 
 def save_exam_state():
     """
-    Saves the current exam state to Firestore under a document
-    keyed by the user's unique key.
+    Saves the current exam state to Firestore under a document keyed by the assigned passcode.
     """
-    user_key = get_user_key()
+    user_key = str(st.session_state.assigned_passcode)
     data = {
         "question_index": st.session_state.question_index,
         "score": st.session_state.score,
         "results": st.session_state.results,
         "selected_answers": st.session_state.selected_answers,
-        "timestamp": firestore.SERVER_TIMESTAMP
+        "result_messages": st.session_state.result_messages,  # Save the per-question messages!
+        "timestamp": firestore.SERVER_TIMESTAMP,
     }
     db.collection("exam_sessions").document(user_key).set(data)
 
 def load_exam_state():
     """
-    Loads the exam state from Firestore (if it exists) and updates
-    the session state accordingly.
+    Loads the exam state from Firestore (if it exists) and updates the session state accordingly.
     """
-    user_key = get_user_key()
+    user_key = str(st.session_state.assigned_passcode)
     doc_ref = db.collection("exam_sessions").document(user_key)
     doc = doc_ref.get()
     if doc.exists:
         data = doc.to_dict()
         st.session_state.question_index = data.get("question_index", 0)
         st.session_state.score = data.get("score", 0)
-        # If for some reason these are missing, default to the current length of df.
         st.session_state.results = data.get("results", st.session_state.results)
         st.session_state.selected_answers = data.get("selected_answers", st.session_state.selected_answers)
-
-### Other helper functions
+        st.session_state.result_messages = data.get("result_messages", st.session_state.result_messages)
 
 def check_and_add_passcode(passcode):
     """
