@@ -67,7 +67,6 @@ def generate_review_doc(row, user_selected_letter, output_filename="review.docx"
     # Heading with record_id and question number.
     doc.add_heading(f"Question {row['record_id']}:", level=2)
     doc.add_paragraph(row["question"])
-    doc.add_paragraph(row["anchor"])
     
     # Add image if available.
     image_path = get_image_path(row["record_id"])
@@ -76,6 +75,8 @@ def generate_review_doc(row, user_selected_letter, output_filename="review.docx"
             doc.add_picture(image_path, width=Inches(4))
         except Exception as e:
             doc.add_paragraph(f"(Image could not be added: {e})")
+
+    doc.add_paragraph(row["anchor"])
     
     # List answer choices.
     doc.add_heading("Answer Choices:", level=2)
