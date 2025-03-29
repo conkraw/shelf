@@ -85,7 +85,7 @@ def load_exam_state():
         st.session_state.results = data.get("results", st.session_state.results)
         st.session_state.selected_answers = data.get("selected_answers", st.session_state.selected_answers)
         st.session_state.result_messages = data.get("result_messages", st.session_state.result_messages)
-
+        
 def check_and_add_passcode(passcode):
     """
     Checks if the given passcode has been used. If not, it adds the passcode
