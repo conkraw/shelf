@@ -222,7 +222,7 @@ def login_screen():
         st.session_state.df = df
         st.session_state.results = [None] * total_questions
         st.session_state.selected_answers = [None] * total_questions
-        st.session_state.result_message = ""
+        st.session_state.result_messages = ["" for _ in range(total_questions)]
         st.session_state.result_color = ""
         
         # Try to load any previously saved exam state.
@@ -339,34 +339,42 @@ def exam_screen():
         for i, option in enumerate(options):
             if not answered:
                 if st.button(option, key=f"option_{st.session_state.question_index}_{i}"):
+                    # Record the selected letter.
                     selected_letter = answer_text_mapping[option]
                     st.session_state.selected_answers[st.session_state.question_index] = selected_letter
                     correct_answer_letter = str(current_row["correct_answer"]).strip().lower()
                     if selected_letter == correct_answer_letter:
                         st.session_state.results[st.session_state.question_index] = "correct"
-                        st.session_state.result_message = "Correct!"
-                        st.session_state.result_color = "success"
+                        message = "Correct!"
                         st.session_state.score += 1
                     else:
                         st.session_state.results[st.session_state.question_index] = "incorrect"
                         correct_answer_text = letter_to_answer.get(correct_answer_letter, "")
-                        st.session_state.result_message = f"Incorrect. The correct answer was: {correct_answer_text}"
-                        st.session_state.result_color = "error"
+                        message = f"Incorrect. The correct answer was: {correct_answer_text}"
+                    
+                    # Store this message in a per-question list.
+                    st.session_state.result_messages[st.session_state.question_index] = message
+                    
                     save_exam_state()  # Save progress after each answer submission.
                     st.rerun()
             else:
                 st.button(option, key=f"option_{st.session_state.question_index}_{i}", disabled=True)
+
     
     with col2:
         if answered:
+            result_msg = st.session_state.result_messages[st.session_state.question_index]
             if st.session_state.results[st.session_state.question_index] == "correct":
-                st.success(st.session_state.result_message)
+                st.success(result_msg)
             elif st.session_state.results[st.session_state.question_index] == "incorrect":
-                st.error(st.session_state.result_message)
+                st.error(result_msg)
+            
             st.write("**Explanation:**")
             st.write(current_row["answer_explanation"])
+            
             if st.button("Next Question"):
                 st.session_state.question_index += 1
+                # Optionally, reset any transient fields (not the per-question message).
                 st.session_state.result_message = ""
                 st.session_state.result_color = ""
                 save_exam_state()  # Save progress when moving to the next question.
