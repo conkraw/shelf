@@ -270,31 +270,33 @@ def exam_screen():
         st.header("Exam Completed")
         st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}** ({percentage:.1f}%).")
         
-        used = check_and_add_passcode(st.session_state.assigned_passcode)
-        if not used:
+        # Check if the passcode is locked (i.e. exam already completed).
+        locked = check_and_add_passcode(st.session_state.assigned_passcode)
+        if not locked:
             st.success("Your passcode has now been locked and cannot be used again.")
+            # Send review email only if this is the first time the exam is completed.
+            wrong_indices = [i for i, result in enumerate(st.session_state.results) if result == "incorrect"]
+            if wrong_indices:
+                selected_index = random.choice(wrong_indices)
+                selected_row = st.session_state.df.iloc[selected_index]
+                user_selected_letter = st.session_state.selected_answers[selected_index]
+                # Include the student's name in the filename.
+                doc_filename = f"review_{st.session_state.user_name}_q{selected_index+1}.docx"
+                generate_review_doc(selected_row, user_selected_letter, output_filename=doc_filename)
+                try:
+                    send_email_with_attachment(
+                        to_emails=[st.session_state.recipient_email],
+                        subject="Review of an Incorrect Question",
+                        body="Please find attached a review document for a question answered incorrectly.",
+                        attachment_path=doc_filename
+                    )
+                    st.success("Review email sent successfully!")
+                except Exception as e:
+                    st.error(f"Error sending email: {e}")
+            else:
+                st.info("No incorrect answers to review!")
         else:
-            st.info("This passcode had already been locked.")
-        
-        wrong_indices = [i for i, result in enumerate(st.session_state.results) if result == "incorrect"]
-        if wrong_indices:
-            selected_index = random.choice(wrong_indices)
-            selected_row = df.iloc[selected_index]
-            user_selected_letter = st.session_state.selected_answers[selected_index]
-            doc_filename = f"review_q{selected_index+1}.docx"
-            generate_review_doc(selected_row, user_selected_letter, output_filename=doc_filename)
-            try:
-                send_email_with_attachment(
-                    to_emails=[st.session_state.recipient_email],
-                    subject="Review of an Incorrect Question",
-                    body="Please find attached a review document for a question answered incorrectly.",
-                    attachment_path=doc_filename
-                )
-                st.success("Review email sent successfully!")
-            except Exception as e:
-                st.error(f"Error sending email: {e}")
-        else:
-            st.info("No incorrect answers to review!")
+            st.info("This passcode has already been locked. No review email will be sent.")
         return
     
     current_row = df.iloc[st.session_state.question_index]
