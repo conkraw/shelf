@@ -244,6 +244,7 @@ def login_screen():
     user_name = st.text_input("Enter your name")
     
     if st.button("Login"):
+        # Validate the passcode against your recipients mapping.
         if "recipients" not in st.secrets:
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
@@ -261,9 +262,28 @@ def login_screen():
         st.session_state.authenticated = True
         st.session_state.user_name = user_name
         
-        full_df = load_data()  # Load all CSV files.
+        # Load the full dataset from CSVs.
+        full_df = load_data()  # This loads all CSV files.
         
-        # Check if there's a saved exam state.
+        # Optionally filter by subject based on a designation in the passcode.
+        # For example, if passcode ends with _aaa, then only pick Respiratory questions.
+        subject_mapping = {
+            "aaa": "Respiratory",
+            "aab": "School-Based",
+            # add more mappings as needed...
+        }
+        # Check if the passcode has a designation (e.g., "password1_aaa")
+        if "_" in passcode_input:
+            designation = passcode_input.split("_")[-1]  # get the part after the underscore
+            if designation in subject_mapping:
+                subject_filter = subject_mapping[designation]
+                filtered_df = full_df[full_df["subject"] == subject_filter]
+                if not filtered_df.empty:
+                    full_df = filtered_df  # Use only questions from this subject.
+                else:
+                    st.warning(f"No questions found for subject {subject_filter}. Using full dataset instead.")
+        
+        # Check if a saved exam session exists.
         user_key = str(st.session_state.assigned_passcode)
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
@@ -283,8 +303,11 @@ def login_screen():
             else:
                 st.session_state.df = full_df
         else:
-            # Use global tracking to sample a new exam of 5 questions.
-            sample_df = sample_new_exam(full_df, n=5)
+            # No saved exam state: randomly sample 5 questions.
+            if len(full_df) >= 5:
+                sample_df = full_df.sample(n=5, replace=False)
+            else:
+                sample_df = full_df.sample(n=5, replace=True)
             st.session_state.question_ids = list(sample_df["record_id"])
             st.session_state.df = sample_df.reset_index(drop=True)
             total_questions = len(st.session_state.df)
