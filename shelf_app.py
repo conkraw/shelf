@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import glob
 import random
+import datetime
 
 from docx import Document
 from docx.shared import Inches
@@ -108,38 +109,56 @@ def get_image_path(record_id, folder="images"):
 
 def get_global_used_questions():
     """
-    Retrieves a list of question record_ids that have been used in previous exam sessions.
+    Retrieves a list of question record_ids that have been used in the last 14 days.
+    Documents older than 14 days are removed (or ignored).
     """
     used_questions_ref = db.collection("global_used_questions")
     docs = used_questions_ref.stream()
-    used_ids = [doc.id for doc in docs]
+    used_ids = []
+    now = datetime.datetime.utcnow()
+    for doc in docs:
+        data = doc.to_dict()
+        ts = data.get("timestamp")
+        if ts is not None:
+            # Convert Firestore timestamp to a naive datetime.
+            # Depending on your Firestore client, you may need to adjust this conversion.
+            ts_naive = ts.replace(tzinfo=None)
+            if (now - ts_naive).days < 14:
+                used_ids.append(doc.id)
+            else:
+                # Optionally, delete the document so the question is available again.
+                doc.reference.delete()
     return used_ids
 
 def mark_questions_as_used(question_ids):
     """
-    Marks the given list of question_ids as used globally.
+    Marks the given list of question_ids as used globally,
+    storing a timestamp so that they can be reset after 14 days.
     """
     used_questions_ref = db.collection("global_used_questions")
     for qid in question_ids:
-        # Here we use the question id as the document id.
-        used_questions_ref.document(str(qid)).set({"used": True})
+        # Use the question id as the document id and add a timestamp.
+        used_questions_ref.document(str(qid)).set({
+            "used": True,
+            "timestamp": firestore.SERVER_TIMESTAMP
+        })
 
 def sample_new_exam(full_df, n=5):
     """
-    Samples n questions from full_df that have not yet been used globally.
-    If not enough are available, resets the global tracker.
+    Samples n questions from full_df that have not yet been used globally 
+    in the last 14 days. If there aren’t enough available, resets the global tracker.
     """
     used_ids = get_global_used_questions()
     available_df = full_df[~full_df["record_id"].isin(used_ids)]
     if len(available_df) < n:
-        # Reset global tracking if desired:
+        # Reset global tracking: delete all old documents so questions can be reused.
         for doc in db.collection("global_used_questions").stream():
-            db.collection("global_used_questions").document(doc.id).delete()
+            doc.reference.delete()
         available_df = full_df
     sample_df = available_df.sample(n=n, replace=False)
-    # Mark these questions as used globally.
     mark_questions_as_used(sample_df["record_id"].tolist())
     return sample_df
+
 
 def load_data(pattern="*.csv"):
     csv_files = glob.glob(pattern)
