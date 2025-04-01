@@ -66,10 +66,12 @@ def save_exam_state():
         "score": st.session_state.score,
         "results": st.session_state.results,
         "selected_answers": st.session_state.selected_answers,
-        "result_messages": st.session_state.result_messages,  # Save the per-question messages!
+        "result_messages": st.session_state.result_messages,  # Per-question messages.
+        "question_ids": st.session_state.question_ids,  # Save the list of selected question record_ids.
         "timestamp": firestore.SERVER_TIMESTAMP,
     }
     db.collection("exam_sessions").document(user_key).set(data)
+
 
 def load_exam_state():
     """
@@ -85,6 +87,8 @@ def load_exam_state():
         st.session_state.results = data.get("results", st.session_state.results)
         st.session_state.selected_answers = data.get("selected_answers", st.session_state.selected_answers)
         st.session_state.result_messages = data.get("result_messages", st.session_state.result_messages)
+        st.session_state.question_ids = data.get("question_ids", [])
+
         
 def check_and_add_passcode(passcode):
     """
@@ -189,8 +193,6 @@ def send_email_with_attachment(to_emails, subject, body, attachment_path):
     except Exception as e:
         st.error(f"Error sending email: {e}")
 
-### Login Screen
-
 def login_screen():
     st.title("Shelf Examination Login")
     passcode_input = st.text_input("Enter your assigned passcode", type="password")
@@ -215,19 +217,36 @@ def login_screen():
         st.session_state.user_name = user_name
         
         # Load combined data.
-        df = load_data()
-        if len(df) > 5:
-            df = df.sample(n=5).reset_index(drop=True) 
-            
-        total_questions = len(df)
-        st.session_state.df = df
+        full_df = load_data()
+        
+        # Check if this exam session already has a saved list of question_ids.
+        if "question_ids" not in st.session_state or not st.session_state.question_ids:
+            # If not, randomly sample 5 questions.
+            if len(full_df) > 5:
+                sample_df = full_df.sample(n=5)
+            else:
+                sample_df = full_df
+            # Preserve the original record_id values.
+            st.session_state.question_ids = list(sample_df["record_id"])
+            # Reset index (if needed) without altering record_id column.
+            st.session_state.df = sample_df.reset_index(drop=True)
+        else:
+            # Use the previously selected question_ids.
+            qids = st.session_state.question_ids
+            # Filter the full dataset to include only these questions.
+            sample_df = full_df[full_df["record_id"].isin(qids)]
+            # Optionally, sort the rows in the order of the saved qids.
+            sample_df = sample_df.set_index("record_id").loc[qids].reset_index()
+            st.session_state.df = sample_df
+        
+        total_questions = len(st.session_state.df)
         st.session_state.results = [None] * total_questions
         st.session_state.selected_answers = [None] * total_questions
         st.session_state.result_messages = ["" for _ in range(total_questions)]
         st.session_state.result_message = ""
         st.session_state.result_color = ""
         
-        # Load saved exam state (if any).
+        # Load saved exam state from Firestore (if it exists) to update question_index, score, etc.
         load_exam_state()
         
         st.rerun()
