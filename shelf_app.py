@@ -123,7 +123,7 @@ def get_global_used_questions():
             # Convert Firestore timestamp to a naive datetime.
             # Depending on your Firestore client, you may need to adjust this conversion.
             ts_naive = ts.replace(tzinfo=None)
-            if (now - ts_naive).days < 14:
+            if (now - ts_naive).days < 7:
                 used_ids.append(doc.id)
             else:
                 # Optionally, delete the document so the question is available again.
