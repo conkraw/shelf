@@ -114,7 +114,8 @@ def load_data(pattern="*.csv"):
     csv_files = glob.glob(pattern)
     dfs = [pd.read_csv(file) for file in csv_files]
     combined_df = pd.concat(dfs, ignore_index=True)
-    combined_df["record_id"] = combined_df.index + 1
+    if "record_id" not in combined_df.columns:
+         combined_df["record_id"] = combined_df.index + 1
     return combined_df
 
 def generate_review_doc(row, user_selected_letter, output_filename="review.docx"):
@@ -216,8 +217,7 @@ def login_screen():
         # Load combined data.
         df = load_data()
         if len(df) > 5:
-            df = df.sample(n=5).reset_index(drop=True)
-            df["record_id"] = df.index + 1
+            df = df.sample(n=5).reset_index(drop=True) 
             
         total_questions = len(df)
         st.session_state.df = df
@@ -323,7 +323,7 @@ def exam_screen():
     
     col1, col2 = st.columns(2)
     with col1:
-        st.write("**Question:**")
+        st.write(f"**Question ({current_row['record_id']}):**")
         st.write(current_row["question"])
         record_id = current_row["record_id"]
         image_path = get_image_path(record_id)
