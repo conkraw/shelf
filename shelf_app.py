@@ -215,6 +215,10 @@ def login_screen():
         
         # Load combined data.
         df = load_data()
+        if len(df) > 5:
+            df = df.sample(n=5).reset_index(drop=True)
+            df["record_id"] = df.index + 1
+            
         total_questions = len(df)
         st.session_state.df = df
         st.session_state.results = [None] * total_questions
