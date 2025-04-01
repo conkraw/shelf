@@ -53,7 +53,7 @@ def initialize_state():
         st.session_state.result_color = ""
         
 def get_user_key():
-    # Use only the assigned passcode as the unique key.
+    # Use the entire assigned passcode (including the three-letter designation) as the key.
     return str(st.session_state.assigned_passcode)
 
 def save_exam_state():
@@ -195,37 +195,34 @@ def send_email_with_attachment(to_emails, subject, body, attachment_path):
 
 def login_screen():
     st.title("Shelf Examination Login")
+    # The passcode now should look like "password_aaa", "password2_aaa", etc.
     passcode_input = st.text_input("Enter your assigned passcode", type="password")
-    user_name = st.text_input("Enter your name")
+    # You no longer require the student's name if only the passcode is needed.
     
     if st.button("Login"):
-        # Check that the recipients mapping exists.
         if "recipients" not in st.secrets:
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
         if passcode_input not in st.secrets["recipients"]:
             st.error("Invalid passcode. Please try again.")
             return
-        if not user_name:
-            st.error("Please enter your name to proceed.")
-            return
         
-        # Store the assigned passcode and recipient email in session state.
+        # Store the assigned passcode in session state.
         st.session_state.assigned_passcode = passcode_input
         recipient_email = st.secrets["recipients"][passcode_input]
         st.session_state.recipient_email = recipient_email
         
         st.session_state.authenticated = True
-        st.session_state.user_name = user_name
         
-        # Load the full dataset.
-        full_df = load_data()  # Load all CSV files.
+        # Load the full dataset from CSVs.
+        full_df = load_data()  # This loads all CSV files.
         
-        # Attempt to load saved exam state from Firestore.
-        user_key = str(st.session_state.assigned_passcode)
+        # Check if a saved exam session exists for this passcode.
+        user_key = get_user_key()
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
         if doc.exists:
+            # If a saved state exists, load it.
             data = doc.to_dict()
             st.session_state.question_index = data.get("question_index", 0)
             st.session_state.score = data.get("score", 0)
@@ -233,29 +230,22 @@ def login_screen():
             st.session_state.selected_answers = data.get("selected_answers", [])
             st.session_state.result_messages = data.get("result_messages", [])
             st.session_state.question_ids = data.get("question_ids", [])
-            
-            # If we have saved question_ids, filter the full dataset to match them.
+            # Filter full_df to include only the questions in question_ids,
+            # preserving the saved order.
             if st.session_state.question_ids:
                 qids = st.session_state.question_ids
                 sample_df = full_df[full_df["record_id"].isin(qids)]
-                # Sort sample_df in the order of the saved qids.
                 sample_df = sample_df.set_index("record_id").loc[qids].reset_index()
                 st.session_state.df = sample_df
             else:
-                # (Fallback: sample new questions if, for some reason, question_ids are missing)
-                sample_df = full_df.sample(n=5)
-                st.session_state.question_ids = list(sample_df["record_id"])
-                st.session_state.df = sample_df.reset_index(drop=True)
-                total_questions = len(st.session_state.df)
-                st.session_state.results = [None] * total_questions
-                st.session_state.selected_answers = [None] * total_questions
-                st.session_state.result_messages = ["" for _ in range(total_questions)]
+                st.session_state.df = full_df  # fallback
         else:
-            # No saved exam state exists: randomly sample 5 questions.
-            if len(full_df) > 5:
-                sample_df = full_df.sample(n=5)
+            # No saved state exists: randomly sample 5 questions.
+            if len(full_df) >= 5:
+                sample_df = full_df.sample(n=5, replace=False)
             else:
-                sample_df = full_df
+                sample_df = full_df.sample(n=5, replace=True)
+            # Preserve the original record_ids.
             st.session_state.question_ids = list(sample_df["record_id"])
             st.session_state.df = sample_df.reset_index(drop=True)
             total_questions = len(st.session_state.df)
@@ -264,7 +254,6 @@ def login_screen():
             st.session_state.result_messages = ["" for _ in range(total_questions)]
         
         st.rerun()
-
 
 ### Exam Screen
 
