@@ -106,6 +106,41 @@ def get_image_path(record_id, folder="images"):
             return matches[0]
     return None
 
+def get_global_used_questions():
+    """
+    Retrieves a list of question record_ids that have been used in previous exam sessions.
+    """
+    used_questions_ref = db.collection("global_used_questions")
+    docs = used_questions_ref.stream()
+    used_ids = [doc.id for doc in docs]
+    return used_ids
+
+def mark_questions_as_used(question_ids):
+    """
+    Marks the given list of question_ids as used globally.
+    """
+    used_questions_ref = db.collection("global_used_questions")
+    for qid in question_ids:
+        # Here we use the question id as the document id.
+        used_questions_ref.document(str(qid)).set({"used": True})
+
+def sample_new_exam(full_df, n=5):
+    """
+    Samples n questions from full_df that have not yet been used globally.
+    If not enough are available, resets the global tracker.
+    """
+    used_ids = get_global_used_questions()
+    available_df = full_df[~full_df["record_id"].isin(used_ids)]
+    if len(available_df) < n:
+        # Reset global tracking if desired:
+        for doc in db.collection("global_used_questions").stream():
+            db.collection("global_used_questions").document(doc.id).delete()
+        available_df = full_df
+    sample_df = available_df.sample(n=n, replace=False)
+    # Mark these questions as used globally.
+    mark_questions_as_used(sample_df["record_id"].tolist())
+    return sample_df
+
 def load_data(pattern="*.csv"):
     csv_files = glob.glob(pattern)
     dfs = [pd.read_csv(file) for file in csv_files]
@@ -207,10 +242,10 @@ def login_screen():
         st.session_state.authenticated = True
         st.session_state.user_name = user_name
         
-        full_df = load_data()
+        full_df = load_data()  # Load all CSV files.
         
-        # Check if saved state exists.
-        user_key = get_user_key()
+        # Check if there's a saved exam state.
+        user_key = str(st.session_state.assigned_passcode)
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
         if doc.exists:
@@ -229,10 +264,8 @@ def login_screen():
             else:
                 st.session_state.df = full_df
         else:
-            if len(full_df) >= 5:
-                sample_df = full_df.sample(n=5, replace=False)
-            else:
-                sample_df = full_df.sample(n=5, replace=True)
+            # Use global tracking to sample a new exam of 5 questions.
+            sample_df = sample_new_exam(full_df, n=5)
             st.session_state.question_ids = list(sample_df["record_id"])
             st.session_state.df = sample_df.reset_index(drop=True)
             total_questions = len(st.session_state.df)
