@@ -98,6 +98,35 @@ def check_and_add_passcode(passcode):
     else:
         return True
 
+def is_passcode_locked(passcode, lock_hours=6):
+    """
+    Checks if the passcode is locked.
+    Returns True if locked (i.e. the passcode was locked within the last lock_hours),
+    otherwise returns False.
+    """
+    doc_ref = db.collection("locked_passcodes").document(str(passcode))
+    doc = doc_ref.get()
+    if doc.exists:
+        data = doc.to_dict()
+        lock_time = data.get("lock_time")
+        if lock_time is not None:
+            # Convert Firestore timestamp to Python datetime.
+            lock_time = lock_time.to_datetime()
+            now = datetime.datetime.utcnow()
+            delta = now - lock_time
+            if delta.total_seconds() < lock_hours * 3600:
+                return True
+    return False
+
+def lock_passcode(passcode):
+    """
+    Locks the passcode by writing the current server timestamp to Firestore.
+    This marks the passcode as used and locked for 6 hours.
+    """
+    doc_ref = db.collection("locked_passcodes").document(str(passcode))
+    # Set the lock time to the server timestamp.
+    doc_ref.set({"lock_time": firestore.SERVER_TIMESTAMP})
+
 def get_image_path(record_id, folder="images"):
     extensions = ["jpg", "jpeg", "png", "gif"]
     for ext in extensions:
@@ -244,6 +273,12 @@ def login_screen():
         if "recipients" not in st.secrets:
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
+
+        # Check if the passcode is locked.
+        if is_passcode_locked(passcode_input):
+            st.error("This passcode is locked. Please try again later.")
+            return
+            
         if passcode_input not in st.secrets["recipients"]:
             st.error("Invalid passcode. Please try again.")
             return
@@ -336,6 +371,15 @@ def exam_screen():
         st.header("Exam Completed")
         st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}** ({percentage:.1f}%).")
         # (Review email logic omitted for brevity)
+
+                # Only lock and send email if not already locked.
+        if not is_passcode_locked(st.session_state.assigned_passcode):
+            lock_passcode(st.session_state.assigned_passcode)
+            st.success("Your passcode has now been locked for 6 hours and cannot be used again.")
+            # (Send review email if desired here.)
+        else:
+            st.info("This passcode is already locked. No new exam will be created.")
+    
         return
 
     # Get the current row
