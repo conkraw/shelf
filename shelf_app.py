@@ -70,6 +70,7 @@ def save_exam_state():
         "selected_answers": st.session_state.selected_answers,
         "result_messages": st.session_state.result_messages,
         "question_ids": st.session_state.question_ids,
+        "email_sent": st.session_state.get("email_sent", False),
         "timestamp": firestore.SERVER_TIMESTAMP,
     }
     db.collection("exam_sessions").document(user_key).set(data)
@@ -86,6 +87,7 @@ def load_exam_state():
         st.session_state.selected_answers = data.get("selected_answers", st.session_state.selected_answers)
         st.session_state.result_messages = data.get("result_messages", st.session_state.result_messages)
         st.session_state.question_ids = data.get("question_ids", st.session_state.question_ids)
+        st.session_state.email_sent = data.get("email_sent", False)
 
 def check_and_add_passcode(passcode):
     passcode_str = str(passcode)
@@ -374,14 +376,40 @@ def exam_screen():
         st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}** ({percentage:.1f}%).")
         # (Review email logic omitted for brevity)
 
-                # Only lock and send email if not already locked.
-        if not is_passcode_locked(st.session_state.assigned_passcode):
+
+        locked = check_and_add_passcode(st.session_state.assigned_passcode)
+        if not locked:
             lock_passcode(st.session_state.assigned_passcode)
-            st.success("Your passcode has now been locked for 6 hours and cannot be used again.")
-            # (Send review email if desired here.)
+            st.success("Your passcode has now been locked and cannot be used again.")
+            
+            # Send review email only if it hasn't been sent yet.
+            if not st.session_state.get("email_sent", False):
+                wrong_indices = [i for i, result in enumerate(st.session_state.results) if result == "incorrect"]
+                if wrong_indices:
+                    selected_index = random.choice(wrong_indices)
+                    selected_row = st.session_state.df.iloc[selected_index]
+                    user_selected_letter = st.session_state.selected_answers[selected_index]
+                    # Include the student's name in the filename.
+                    doc_filename = f"review_{st.session_state.user_name}_q{selected_index+1}.docx"
+                    generate_review_doc(selected_row, user_selected_letter, output_filename=doc_filename)
+                    try:
+                        send_email_with_attachment(
+                            to_emails=[st.session_state.recipient_email],
+                            subject="Review of an Incorrect Question",
+                            body="Please find attached a review document for a question answered incorrectly.",
+                            attachment_path=doc_filename
+                        )
+                        st.success("Review email sent successfully!")
+                        st.session_state.email_sent = True  # Mark email as sent.
+                        save_exam_state()  # Update the state in Firestore.
+                    except Exception as e:
+                        st.error(f"Error sending email: {e}")
+                else:
+                    st.info("No incorrect answers to review!")
+            else:
+                st.info("Review email has already been sent for this exam.")
         else:
-            st.info("This passcode is already locked. No new exam will be created.")
-    
+            st.info("This passcode has already been locked. No new exam will be created.")
         return
 
     # Get the current row
