@@ -110,13 +110,13 @@ def is_passcode_locked(passcode, lock_hours=6):
         data = doc.to_dict()
         lock_time = data.get("lock_time")
         if lock_time is not None:
-            # Convert Firestore timestamp to Python datetime.
-            lock_time = lock_time.to_datetime()
+            # lock_time is already a datetime-like object.
             now = datetime.datetime.utcnow()
             delta = now - lock_time
             if delta.total_seconds() < lock_hours * 3600:
                 return True
     return False
+
 
 def lock_passcode(passcode):
     """
