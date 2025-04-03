@@ -109,8 +109,8 @@ def get_image_path(record_id, folder="images"):
 
 def get_global_used_questions():
     """
-    Retrieves a list of question record_ids that have been used in the last 14 days.
-    Documents older than 14 days are removed (or ignored).
+    Retrieves a list of question record_ids that have been used in the last 7 days.
+    Documents older than 7 days are deleted so questions can be reused.
     """
     used_questions_ref = db.collection("global_used_questions")
     docs = used_questions_ref.stream()
@@ -120,24 +120,21 @@ def get_global_used_questions():
         data = doc.to_dict()
         ts = data.get("timestamp")
         if ts is not None:
-            # Convert Firestore timestamp to a naive datetime.
-            # Depending on your Firestore client, you may need to adjust this conversion.
             ts_naive = ts.replace(tzinfo=None)
             if (now - ts_naive).days < 7:
                 used_ids.append(doc.id)
             else:
-                # Optionally, delete the document so the question is available again.
+                # Delete outdated documents so questions become available.
                 doc.reference.delete()
     return used_ids
 
 def mark_questions_as_used(question_ids):
     """
     Marks the given list of question_ids as used globally,
-    storing a timestamp so that they can be reset after 14 days.
+    storing a timestamp so that they can be reset after 7 days.
     """
     used_questions_ref = db.collection("global_used_questions")
     for qid in question_ids:
-        # Use the question id as the document id and add a timestamp.
         used_questions_ref.document(str(qid)).set({
             "used": True,
             "timestamp": firestore.SERVER_TIMESTAMP
@@ -145,26 +142,27 @@ def mark_questions_as_used(question_ids):
 
 def sample_new_exam(full_df, n=5):
     """
-    Samples n questions from full_df that have not yet been used globally 
-    in the last 14 days. If there aren’t enough available, resets the global tracker.
+    Samples n questions from full_df that have not yet been used in the last 7 days.
+    If no questions are available, displays an error message and stops.
+    If fewer than n questions are available, uses all remaining questions.
     """
     used_ids = get_global_used_questions()
     available_df = full_df[~full_df["record_id"].isin(used_ids)]
+    if available_df.empty:
+        st.error("No further cases available for your passcode. Please try again later.")
+        st.stop()
     if len(available_df) < n:
-        # Reset global tracking: delete all old documents so questions can be reused.
-        for doc in db.collection("global_used_questions").stream():
-            doc.reference.delete()
-        available_df = full_df
-    sample_df = available_df.sample(n=n, replace=False)
+        st.warning("Fewer than the expected number of questions are available. Using all remaining questions.")
+        sample_df = available_df
+    else:
+        sample_df = available_df.sample(n=n, replace=False)
     mark_questions_as_used(sample_df["record_id"].tolist())
     return sample_df
-
 
 def load_data(pattern="*.csv"):
     csv_files = glob.glob(pattern)
     dfs = [pd.read_csv(file) for file in csv_files]
     combined_df = pd.concat(dfs, ignore_index=True)
-    # If a record_id column exists, keep it.
     if "record_id" not in combined_df.columns:
         combined_df["record_id"] = combined_df.index + 1
     return combined_df
@@ -172,7 +170,6 @@ def load_data(pattern="*.csv"):
 def generate_review_doc(row, user_selected_letter, output_filename="review.docx"):
     doc = Document()
     doc.add_heading("Review of Incorrect Question", level=1)
-    # Add the student’s name
     doc.add_heading(f"Student: {st.session_state.user_name}", level=2)
     doc.add_heading(f"Question {row['record_id']}:", level=2)
     doc.add_paragraph(row["question"])
@@ -244,7 +241,6 @@ def login_screen():
     user_name = st.text_input("Enter your name")
     
     if st.button("Login"):
-        # Validate the passcode against your recipients mapping.
         if "recipients" not in st.secrets:
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
@@ -263,27 +259,25 @@ def login_screen():
         st.session_state.user_name = user_name
         
         # Load the full dataset from CSVs.
-        full_df = load_data()  # This loads all CSV files.
+        full_df = load_data()  # Loads all CSV files.
         
-        # Optionally filter by subject based on a designation in the passcode.
-        # For example, if passcode ends with _aaa, then only pick Respiratory questions.
+        # Optionally filter by subject based on designation in the passcode.
         subject_mapping = {
             "aaa": "Respiratory",
             "aab": "School-Based",
             # add more mappings as needed...
         }
-        # Check if the passcode has a designation (e.g., "password1_aaa")
         if "_" in passcode_input:
-            designation = passcode_input.split("_")[-1]  # get the part after the underscore
+            designation = passcode_input.split("_")[-1]  # get part after underscore
             if designation in subject_mapping:
                 subject_filter = subject_mapping[designation]
                 filtered_df = full_df[full_df["subject"] == subject_filter]
                 if not filtered_df.empty:
-                    full_df = filtered_df  # Use only questions from this subject.
+                    full_df = filtered_df
                 else:
                     st.warning(f"No questions found for subject {subject_filter}. Using full dataset instead.")
         
-        # Check if a saved exam session exists.
+        # Check for a saved exam session.
         user_key = str(st.session_state.assigned_passcode)
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
@@ -291,10 +285,10 @@ def login_screen():
             data = doc.to_dict()
             st.session_state.question_index = data.get("question_index", 0)
             st.session_state.score = data.get("score", 0)
-            st.session_state.results = data.get("results", [])
-            st.session_state.selected_answers = data.get("selected_answers", [])
-            st.session_state.result_messages = data.get("result_messages", [])
-            st.session_state.question_ids = data.get("question_ids", [])
+            st.session_state.results = data.get("results", st.session_state.results)
+            st.session_state.selected_answers = data.get("selected_answers", st.session_state.selected_answers)
+            st.session_state.result_messages = data.get("result_messages", st.session_state.result_messages)
+            st.session_state.question_ids = data.get("question_ids", st.session_state.question_ids)
             if st.session_state.question_ids:
                 qids = st.session_state.question_ids
                 sample_df = full_df[full_df["record_id"].isin(qids)]
@@ -303,11 +297,8 @@ def login_screen():
             else:
                 st.session_state.df = full_df
         else:
-            # No saved exam state: randomly sample 5 questions.
-            if len(full_df) >= 5:
-                sample_df = full_df.sample(n=5, replace=False)
-            else:
-                sample_df = full_df.sample(n=5, replace=True)
+            # No saved exam state: sample 5 questions without repeating used cases.
+            sample_df = sample_new_exam(full_df, n=5)
             st.session_state.question_ids = list(sample_df["record_id"])
             st.session_state.df = sample_df.reset_index(drop=True)
             total_questions = len(st.session_state.df)
@@ -349,13 +340,11 @@ def exam_screen():
         locked = check_and_add_passcode(st.session_state.assigned_passcode)
         if not locked:
             st.success("Your passcode has now been locked and cannot be used again.")
-            # Send review email only if this is the first time the exam is completed.
             wrong_indices = [i for i, result in enumerate(st.session_state.results) if result == "incorrect"]
             if wrong_indices:
                 selected_index = random.choice(wrong_indices)
                 selected_row = st.session_state.df.iloc[selected_index]
                 user_selected_letter = st.session_state.selected_answers[selected_index]
-                # Include the student's name in the filename.
                 doc_filename = f"review_{st.session_state.user_name}_q{selected_index+1}.docx"
                 generate_review_doc(selected_row, user_selected_letter, output_filename=doc_filename)
                 try:
@@ -471,5 +460,4 @@ def main():
         
 if __name__ == "__main__":
     main()
-
 
