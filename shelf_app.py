@@ -98,6 +98,8 @@ def check_and_add_passcode(passcode):
     else:
         return True
 
+
+
 def is_passcode_locked(passcode, lock_hours=6):
     """
     Checks if the passcode is locked.
@@ -110,8 +112,8 @@ def is_passcode_locked(passcode, lock_hours=6):
         data = doc.to_dict()
         lock_time = data.get("lock_time")
         if lock_time is not None:
-            # lock_time is already a datetime-like object.
-            now = datetime.datetime.utcnow()
+            # lock_time is already a timezone-aware datetime.
+            now = datetime.datetime.now(datetime.timezone.utc)
             delta = now - lock_time
             if delta.total_seconds() < lock_hours * 3600:
                 return True
