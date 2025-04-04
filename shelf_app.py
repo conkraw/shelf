@@ -381,9 +381,9 @@ def exam_screen():
         save_exam_state()  # Save the complete state.
         
         # Lock the passcode if not already locked.
-        if not is_passcode_locked(st.session_state.assigned_passcode, lock_seconds=120):
+        if not is_passcode_locked(st.session_state.assigned_passcode, lock_hours=6):
             lock_passcode(st.session_state.assigned_passcode)
-            st.success("Your passcode has now been locked for 120 seconds and cannot be used again.")
+            st.success("Your passcode has now been locked for 6 hours and cannot be used again.")
         
         # Send review email only once.
         if not st.session_state.get("email_sent", False):
