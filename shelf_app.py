@@ -274,6 +274,7 @@ def login_screen():
     user_name = st.text_input("Enter your name")
     
     if st.button("Login"):
+        # Check that the recipients mapping exists.
         if "recipients" not in st.secrets:
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
@@ -284,6 +285,7 @@ def login_screen():
             st.error("Please enter your name to proceed.")
             return
         
+        # Save the passcode and recipient info.
         st.session_state.assigned_passcode = passcode_input
         recipient_email = st.secrets["recipients"][passcode_input]
         st.session_state.recipient_email = recipient_email
@@ -291,13 +293,16 @@ def login_screen():
         st.session_state.authenticated = True
         st.session_state.user_name = user_name
         
-        full_df = load_data()  # Load the full dataset from CSVs.
+        # Load the full dataset.
+        full_df = load_data()  # Loads all CSV files.
+        
+        # Attempt to load a saved exam state.
         user_key = str(st.session_state.assigned_passcode)
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
         
-        # Check: if an exam session exists and the passcode is locked, resume; otherwise, start new.
-        if doc.exists and is_passcode_locked(passcode_input):
+        # If a saved exam state exists AND the passcode is NOT locked (exam in progress), resume it.
+        if doc.exists and not is_passcode_locked(passcode_input):
             data = doc.to_dict()
             st.session_state.question_index = data.get("question_index", 0)
             st.session_state.score = data.get("score", 0)
@@ -313,12 +318,11 @@ def login_screen():
             else:
                 st.session_state.df = full_df
         else:
-            # Either no saved session or the passcode is unlocked (i.e. exam session is expired)
-            # Delete any existing saved state (if present) so we start fresh.
+            # Either no saved session exists or the passcode is locked (exam already submitted).
+            # In the latter case, remove the old session so a new exam can be created.
             if doc.exists:
                 doc_ref.delete()
             # Create a new exam session.
-            # (Optionally, apply subject filtering if needed.)
             if len(full_df) >= 5:
                 sample_df = full_df.sample(n=5, replace=False)
             else:
