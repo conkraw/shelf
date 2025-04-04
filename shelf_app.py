@@ -71,6 +71,7 @@ def save_exam_state():
         "result_messages": st.session_state.result_messages,
         "question_ids": st.session_state.question_ids,
         "email_sent": st.session_state.get("email_sent", False),
+        "exam_complete": st.session_state.get("exam_complete", False), 
         "timestamp": firestore.SERVER_TIMESTAMP,
     }
     db.collection("exam_sessions").document(user_key).set(data)
