@@ -71,6 +71,7 @@ def save_exam_state():
         "result_messages": st.session_state.result_messages,
         "question_ids": st.session_state.question_ids,
         "email_sent": st.session_state.get("email_sent", False),
+        "exam_complete": st.session_state.get("exam_complete", False),
         "timestamp": firestore.SERVER_TIMESTAMP,
     }
     db.collection("exam_sessions").document(user_key).set(data)
@@ -88,6 +89,7 @@ def load_exam_state():
         st.session_state.result_messages = data.get("result_messages", st.session_state.result_messages)
         st.session_state.question_ids = data.get("question_ids", st.session_state.question_ids)
         st.session_state.email_sent = data.get("email_sent", False)
+        st.session_state.exam_complete = data.get("exam_complete", False)
 
 def check_and_add_passcode(passcode):
     passcode_str = str(passcode)
@@ -312,7 +314,6 @@ def login_screen():
             st.error("Please enter your name to proceed.")
             return
         
-        # Save login info in session state.
         st.session_state.assigned_passcode = passcode_input
         recipient_email = st.secrets["recipients"][passcode_input]
         st.session_state.recipient_email = recipient_email
@@ -324,11 +325,10 @@ def login_screen():
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
         
-        # Check if a saved exam session exists.
         if doc.exists:
-            if is_passcode_locked(passcode_input, lock_seconds=30):
-                # Passcode is still locked; resume saved exam session.
-                data = doc.to_dict()
+            data = doc.to_dict()
+            # Resume only if the exam is not marked complete.
+            if not data.get("exam_complete", False):
                 st.session_state.question_index = data.get("question_index", 0)
                 st.session_state.score = data.get("score", 0)
                 st.session_state.results = data.get("results", [])
@@ -343,16 +343,15 @@ def login_screen():
                 else:
                     st.session_state.df = full_df
             else:
-                # The passcode lock has expired: delete the old session and create a new exam.
+                # Exam is complete: start a new exam.
                 doc_ref.delete()
                 create_new_exam(full_df)
         else:
-            # No saved session exists: create a new exam.
             create_new_exam(full_df)
         
         st.rerun()
-### Exam Screen
 
+#EXAM SCREEN 
 def exam_screen():
     st.title("Shelf Examination Application")
     st.write(f"Welcome, **{st.session_state.user_name}**!")
@@ -378,8 +377,9 @@ def exam_screen():
         percentage = (st.session_state.score / total_questions) * 100
         st.header("Exam Completed")
         st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}** ({percentage:.1f}%).")
-        # (Review email logic omitted for brevity)
 
+        st.session_state.exam_complete = True
+        save_exam_state()  # Save the complete state.
 
         locked = check_and_add_passcode(st.session_state.assigned_passcode)
         if not locked:
