@@ -316,35 +316,45 @@ def login_screen():
         if not user_name:
             st.error("Please enter your name to proceed.")
             return
-        
+
+        # Check if the passcode is locked before proceeding.
+        if is_passcode_locked(passcode_input, lock_seconds=120):
+            st.error("This passcode is locked and cannot be used until the lock period expires. Please try again later.")
+            return
+
         # Save login info in session state.
         st.session_state.assigned_passcode = passcode_input
         recipient_email = st.secrets["recipients"][passcode_input]
         st.session_state.recipient_email = recipient_email
         st.session_state.authenticated = True
         st.session_state.user_name = user_name
-        
+
         full_df = load_data()  # Load the full dataset.
         user_key = str(passcode_input)
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
-        
+
         if doc.exists:
-            # Resume saved exam session (whether exam_complete is True or not).
             data = doc.to_dict()
-            st.session_state.question_index = data.get("question_index", 0)
-            st.session_state.score = data.get("score", 0)
-            st.session_state.results = data.get("results", [])
-            st.session_state.selected_answers = data.get("selected_answers", [])
-            st.session_state.result_messages = data.get("result_messages", [])
-            st.session_state.question_ids = data.get("question_ids", [])
-            if st.session_state.question_ids:
-                qids = st.session_state.question_ids
-                sample_df = full_df[full_df["record_id"].isin(qids)]
-                sample_df = sample_df.set_index("record_id").loc[qids].reset_index()
-                st.session_state.df = sample_df
+            # If the exam has been marked complete, do not resume.
+            if data.get("exam_complete", False):
+                st.error("This exam has already been completed and the passcode is locked. Please try again later.")
+                return
             else:
-                st.session_state.df = full_df
+                # Resume saved exam session.
+                st.session_state.question_index = data.get("question_index", 0)
+                st.session_state.score = data.get("score", 0)
+                st.session_state.results = data.get("results", [])
+                st.session_state.selected_answers = data.get("selected_answers", [])
+                st.session_state.result_messages = data.get("result_messages", [])
+                st.session_state.question_ids = data.get("question_ids", [])
+                if st.session_state.question_ids:
+                    qids = st.session_state.question_ids
+                    sample_df = full_df[full_df["record_id"].isin(qids)]
+                    sample_df = sample_df.set_index("record_id").loc[qids].reset_index()
+                    st.session_state.df = sample_df
+                else:
+                    st.session_state.df = full_df
         else:
             # No saved session exists: create a new exam.
             create_new_exam(full_df)
