@@ -284,7 +284,7 @@ def login_screen():
             st.error("Please enter your name to proceed.")
             return
             
-        if is_passcode_locked(passcode_input, lock_seconds=120):
+        if is_passcode_locked(passcode_input, lock_hours=6):
             st.error("This passcode is locked. Please try again later.")
             return
         
