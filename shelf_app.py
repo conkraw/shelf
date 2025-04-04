@@ -320,7 +320,7 @@ def login_screen():
             # Check if the saved session is complete.
             if data.get("exam_complete", False):
                 # Exam was complete; now check if the lock period is still active.
-                if is_passcode_locked(passcode_input, lock_seconds=120):
+                if is_passcode_locked(passcode_input, lock_hours=6):
                     st.error("This passcode is locked. Please try again later.")
                     return
                 else:
