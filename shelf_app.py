@@ -315,7 +315,7 @@ def login_screen():
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
 
-                if doc.exists:
+        if doc.exists:
             data = doc.to_dict()
             # Check if the saved session is complete.
             if data.get("exam_complete", False):
