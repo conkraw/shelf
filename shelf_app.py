@@ -277,12 +277,6 @@ def login_screen():
         if "recipients" not in st.secrets:
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
-
-        # Check if the passcode is locked.
-        if is_passcode_locked(passcode_input):
-            st.error("This passcode is locked. Please try again later.")
-            return
-            
         if passcode_input not in st.secrets["recipients"]:
             st.error("Invalid passcode. Please try again.")
             return
@@ -297,37 +291,20 @@ def login_screen():
         st.session_state.authenticated = True
         st.session_state.user_name = user_name
         
-        # Load the full dataset from CSVs.
-        full_df = load_data()  # Loads all CSV files.
-        
-        # Optionally filter by subject based on designation in the passcode.
-        subject_mapping = {
-            "aaa": "Respiratory",
-            "aab": "School-Based",
-            # add more mappings as needed...
-        }
-        if "_" in passcode_input:
-            designation = passcode_input.split("_")[-1]  # get part after underscore
-            if designation in subject_mapping:
-                subject_filter = subject_mapping[designation]
-                filtered_df = full_df[full_df["subject"] == subject_filter]
-                if not filtered_df.empty:
-                    full_df = filtered_df
-                else:
-                    st.warning(f"No questions found for subject {subject_filter}. Using full dataset instead.")
-        
-        # Check for a saved exam session.
+        full_df = load_data()  # Load the full dataset from CSVs.
         user_key = str(st.session_state.assigned_passcode)
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
-        if doc.exists:
+        
+        # Check: if an exam session exists and the passcode is locked, resume; otherwise, start new.
+        if doc.exists and is_passcode_locked(passcode_input):
             data = doc.to_dict()
             st.session_state.question_index = data.get("question_index", 0)
             st.session_state.score = data.get("score", 0)
-            st.session_state.results = data.get("results", st.session_state.results)
-            st.session_state.selected_answers = data.get("selected_answers", st.session_state.selected_answers)
-            st.session_state.result_messages = data.get("result_messages", st.session_state.result_messages)
-            st.session_state.question_ids = data.get("question_ids", st.session_state.question_ids)
+            st.session_state.results = data.get("results", [])
+            st.session_state.selected_answers = data.get("selected_answers", [])
+            st.session_state.result_messages = data.get("result_messages", [])
+            st.session_state.question_ids = data.get("question_ids", [])
             if st.session_state.question_ids:
                 qids = st.session_state.question_ids
                 sample_df = full_df[full_df["record_id"].isin(qids)]
@@ -336,8 +313,16 @@ def login_screen():
             else:
                 st.session_state.df = full_df
         else:
-            # No saved exam state: sample 5 questions without repeating used cases.
-            sample_df = sample_new_exam(full_df, n=5)
+            # Either no saved session or the passcode is unlocked (i.e. exam session is expired)
+            # Delete any existing saved state (if present) so we start fresh.
+            if doc.exists:
+                doc_ref.delete()
+            # Create a new exam session.
+            # (Optionally, apply subject filtering if needed.)
+            if len(full_df) >= 5:
+                sample_df = full_df.sample(n=5, replace=False)
+            else:
+                sample_df = full_df.sample(n=5, replace=True)
             st.session_state.question_ids = list(sample_df["record_id"])
             st.session_state.df = sample_df.reset_index(drop=True)
             total_questions = len(st.session_state.df)
