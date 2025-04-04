@@ -101,7 +101,7 @@ def check_and_add_passcode(passcode):
         return True
 
 #LOCKS FOR 30 Seconds
-def is_passcode_locked(passcode, lock_seconds=30):
+def is_passcode_locked(passcode, lock_seconds=120):
     """
     Checks if the passcode is locked.
     Returns True if the passcode was locked less than lock_seconds ago.
