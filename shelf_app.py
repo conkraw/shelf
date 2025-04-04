@@ -114,12 +114,15 @@ def is_passcode_locked(passcode, lock_seconds=120):
         data = doc.to_dict()
         lock_time = data.get("lock_time")
         if lock_time is not None:
-            # Now is a timezone-aware datetime.
+            # Ensure lock_time is timezone-aware.
+            if lock_time.tzinfo is None:
+                lock_time = lock_time.replace(tzinfo=datetime.timezone.utc)
             now = datetime.datetime.now(datetime.timezone.utc)
             delta = now - lock_time
             if delta.total_seconds() < lock_seconds:
                 return True
     return False
+
 
 #LOCKS FOR 6 HOURS#
 #def is_passcode_locked(passcode, lock_hours=6):
