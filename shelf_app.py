@@ -102,7 +102,7 @@ def check_and_add_passcode(passcode):
 
 
 
-def is_passcode_locked(passcode, lock_hours=6):
+def is_passcode_locked(passcode, lock_hours=0):
     """
     Checks if the passcode is locked.
     Returns True if locked (i.e. the passcode was locked within the last lock_hours),
