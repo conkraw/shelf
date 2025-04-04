@@ -103,18 +103,13 @@ def check_and_add_passcode(passcode):
         return True
 
 #LOCKS FOR 30 Seconds
-def is_passcode_locked(passcode, lock_seconds=120):
-    """
-    Checks if the passcode is locked.
-    Returns True if the passcode was locked less than lock_seconds ago.
-    """
+def is_passcode_locked(passcode, lock_seconds=30):
     doc_ref = db.collection("locked_passcodes").document(str(passcode))
     doc = doc_ref.get()
     if doc.exists:
         data = doc.to_dict()
         lock_time = data.get("lock_time")
         if lock_time is not None:
-            # Ensure lock_time is timezone-aware.
             if lock_time.tzinfo is None:
                 lock_time = lock_time.replace(tzinfo=datetime.timezone.utc)
             now = datetime.datetime.now(datetime.timezone.utc)
@@ -316,32 +311,30 @@ def login_screen():
         if not user_name:
             st.error("Please enter your name to proceed.")
             return
-
-        # Check if the passcode is locked before proceeding.
-        if is_passcode_locked(passcode_input, lock_seconds=120):
-            st.error("This passcode is locked and cannot be used until the lock period expires. Please try again later.")
-            return
-
+        
         # Save login info in session state.
         st.session_state.assigned_passcode = passcode_input
         recipient_email = st.secrets["recipients"][passcode_input]
         st.session_state.recipient_email = recipient_email
         st.session_state.authenticated = True
         st.session_state.user_name = user_name
-
+        
         full_df = load_data()  # Load the full dataset.
         user_key = str(passcode_input)
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
-
+        
         if doc.exists:
             data = doc.to_dict()
-            # If the exam has been marked complete, do not resume.
-            if data.get("exam_complete", False):
-                st.error("This exam has already been completed and the passcode is locked. Please try again later.")
-                return
+            # Debug: show loaded exam state.
+            st.write("Loaded exam state:", data)
+            # Check if the exam is complete OR if the lock period expired.
+            if data.get("exam_complete", False) or not is_passcode_locked(passcode_input, lock_seconds=30):
+                st.write("Lock expired or exam complete. Creating new exam session.")
+                doc_ref.delete()
+                create_new_exam(full_df)
             else:
-                # Resume saved exam session.
+                # Resume the saved exam session.
                 st.session_state.question_index = data.get("question_index", 0)
                 st.session_state.score = data.get("score", 0)
                 st.session_state.results = data.get("results", [])
@@ -360,6 +353,7 @@ def login_screen():
             create_new_exam(full_df)
         
         st.rerun()
+
 
 
 #EXAM SCREEN 
