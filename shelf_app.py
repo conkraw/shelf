@@ -325,9 +325,15 @@ def login_screen():
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
         
+        # Debug: indicate whether a saved exam session was found.
+        if doc.exists:
+            st.write("Saved exam session found:", doc.to_dict())
+        else:
+            st.write("No saved exam session found.")
+        
+        # If a saved exam session exists and the exam is not marked complete, resume it.
         if doc.exists:
             data = doc.to_dict()
-            # Resume only if the exam is not marked complete.
             if not data.get("exam_complete", False):
                 st.session_state.question_index = data.get("question_index", 0)
                 st.session_state.score = data.get("score", 0)
@@ -343,13 +349,15 @@ def login_screen():
                 else:
                     st.session_state.df = full_df
             else:
-                # Exam is complete: start a new exam.
+                # Exam was marked complete; start a new exam.
                 doc_ref.delete()
                 create_new_exam(full_df)
         else:
+            # No saved session: create a new exam.
             create_new_exam(full_df)
         
         st.rerun()
+
 
 #EXAM SCREEN 
 def exam_screen():
