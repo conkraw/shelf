@@ -186,6 +186,21 @@ def mark_questions_as_used(question_ids):
             "timestamp": firestore.SERVER_TIMESTAMP
         })
 
+def create_new_exam(full_df):
+    """
+    Samples a new exam from the full dataset and initializes the session state.
+    """
+    if len(full_df) >= 5:
+        sample_df = full_df.sample(n=5, replace=False)
+    else:
+        sample_df = full_df.sample(n=5, replace=True)
+    st.session_state.question_ids = list(sample_df["record_id"])
+    st.session_state.df = sample_df.reset_index(drop=True)
+    total_questions = len(st.session_state.df)
+    st.session_state.results = [None] * total_questions
+    st.session_state.selected_answers = [None] * total_questions
+    st.session_state.result_messages = ["" for _ in range(total_questions)]
+    
 def sample_new_exam(full_df, n=5):
     """
     Samples n questions from full_df that have not yet been used in the last 7 days.
@@ -287,7 +302,6 @@ def login_screen():
     user_name = st.text_input("Enter your name")
     
     if st.button("Login"):
-        # Check that the recipients mapping exists.
         if "recipients" not in st.secrets:
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
@@ -298,57 +312,45 @@ def login_screen():
             st.error("Please enter your name to proceed.")
             return
         
-        # Save the passcode and recipient info.
+        # Save login info in session state.
         st.session_state.assigned_passcode = passcode_input
         recipient_email = st.secrets["recipients"][passcode_input]
         st.session_state.recipient_email = recipient_email
-        
         st.session_state.authenticated = True
         st.session_state.user_name = user_name
         
-        # Load the full dataset.
-        full_df = load_data()  # Loads all CSV files.
-        
-        # Attempt to load a saved exam state.
-        user_key = str(st.session_state.assigned_passcode)
+        full_df = load_data()  # Load the full dataset.
+        user_key = str(passcode_input)
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
         
-        # If a saved exam state exists AND the passcode is NOT locked (exam in progress), resume it.
-        if doc.exists and not is_passcode_locked(passcode_input):
-            data = doc.to_dict()
-            st.session_state.question_index = data.get("question_index", 0)
-            st.session_state.score = data.get("score", 0)
-            st.session_state.results = data.get("results", [])
-            st.session_state.selected_answers = data.get("selected_answers", [])
-            st.session_state.result_messages = data.get("result_messages", [])
-            st.session_state.question_ids = data.get("question_ids", [])
-            if st.session_state.question_ids:
-                qids = st.session_state.question_ids
-                sample_df = full_df[full_df["record_id"].isin(qids)]
-                sample_df = sample_df.set_index("record_id").loc[qids].reset_index()
-                st.session_state.df = sample_df
+        # Check if a saved exam session exists.
+        if doc.exists:
+            if is_passcode_locked(passcode_input, lock_seconds=30):
+                # Passcode is still locked; resume saved exam session.
+                data = doc.to_dict()
+                st.session_state.question_index = data.get("question_index", 0)
+                st.session_state.score = data.get("score", 0)
+                st.session_state.results = data.get("results", [])
+                st.session_state.selected_answers = data.get("selected_answers", [])
+                st.session_state.result_messages = data.get("result_messages", [])
+                st.session_state.question_ids = data.get("question_ids", [])
+                if st.session_state.question_ids:
+                    qids = st.session_state.question_ids
+                    sample_df = full_df[full_df["record_id"].isin(qids)]
+                    sample_df = sample_df.set_index("record_id").loc[qids].reset_index()
+                    st.session_state.df = sample_df
+                else:
+                    st.session_state.df = full_df
             else:
-                st.session_state.df = full_df
-        else:
-            # Either no saved session exists or the passcode is locked (exam already submitted).
-            # In the latter case, remove the old session so a new exam can be created.
-            if doc.exists:
+                # The passcode lock has expired: delete the old session and create a new exam.
                 doc_ref.delete()
-            # Create a new exam session.
-            if len(full_df) >= 5:
-                sample_df = full_df.sample(n=5, replace=False)
-            else:
-                sample_df = full_df.sample(n=5, replace=True)
-            st.session_state.question_ids = list(sample_df["record_id"])
-            st.session_state.df = sample_df.reset_index(drop=True)
-            total_questions = len(st.session_state.df)
-            st.session_state.results = [None] * total_questions
-            st.session_state.selected_answers = [None] * total_questions
-            st.session_state.result_messages = ["" for _ in range(total_questions)]
+                create_new_exam(full_df)
+        else:
+            # No saved session exists: create a new exam.
+            create_new_exam(full_df)
         
         st.rerun()
-
 ### Exam Screen
 
 def exam_screen():
