@@ -314,6 +314,7 @@ def login_screen():
             st.error("Please enter your name to proceed.")
             return
         
+        # Save login info in session state.
         st.session_state.assigned_passcode = passcode_input
         recipient_email = st.secrets["recipients"][passcode_input]
         st.session_state.recipient_email = recipient_email
@@ -325,15 +326,10 @@ def login_screen():
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
         
-        # Debug: indicate whether a saved exam session was found.
-        if doc.exists:
-            st.write("Saved exam session found:", doc.to_dict())
-        else:
-            st.write("No saved exam session found.")
-        
-        # If a saved exam session exists and the exam is not marked complete, resume it.
+        # Check if a saved exam session exists.
         if doc.exists:
             data = doc.to_dict()
+            # If the exam is not marked complete, resume it.
             if not data.get("exam_complete", False):
                 st.session_state.question_index = data.get("question_index", 0)
                 st.session_state.score = data.get("score", 0)
@@ -349,11 +345,11 @@ def login_screen():
                 else:
                     st.session_state.df = full_df
             else:
-                # Exam was marked complete; start a new exam.
+                # The exam was completed; delete old session and start a new exam.
                 doc_ref.delete()
                 create_new_exam(full_df)
         else:
-            # No saved session: create a new exam.
+            # No saved session exists: create a new exam.
             create_new_exam(full_df)
         
         st.rerun()
