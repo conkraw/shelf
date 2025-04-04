@@ -277,17 +277,15 @@ def login_screen():
         if "recipients" not in st.secrets:
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
-
-        # Check if the passcode is locked.
-        if is_passcode_locked(passcode_input):
-            st.error("This passcode is locked. Please try again later.")
-            return
-            
         if passcode_input not in st.secrets["recipients"]:
             st.error("Invalid passcode. Please try again.")
             return
         if not user_name:
             st.error("Please enter your name to proceed.")
+            return
+            
+        if is_passcode_locked(passcode_input, lock_seconds=120):
+            st.error("This passcode is locked. Please try again later.")
             return
         
         st.session_state.assigned_passcode = passcode_input
