@@ -100,13 +100,11 @@ def check_and_add_passcode(passcode):
     else:
         return True
 
-
-
-def is_passcode_locked(passcode, lock_hours=6):
+#LOCKS FOR 30 Seconds
+def is_passcode_locked(passcode, lock_seconds=30):
     """
     Checks if the passcode is locked.
-    Returns True if locked (i.e. the passcode was locked within the last lock_hours),
-    otherwise returns False.
+    Returns True if the passcode was locked less than lock_seconds ago.
     """
     doc_ref = db.collection("locked_passcodes").document(str(passcode))
     doc = doc_ref.get()
@@ -114,12 +112,27 @@ def is_passcode_locked(passcode, lock_hours=6):
         data = doc.to_dict()
         lock_time = data.get("lock_time")
         if lock_time is not None:
-            # lock_time is already a timezone-aware datetime.
+            # Now is a timezone-aware datetime.
             now = datetime.datetime.now(datetime.timezone.utc)
             delta = now - lock_time
-            if delta.total_seconds() < lock_hours * 3600:
+            if delta.total_seconds() < lock_seconds:
                 return True
     return False
+
+#LOCKS FOR 6 HOURS#
+#def is_passcode_locked(passcode, lock_hours=6):
+    #doc_ref = db.collection("locked_passcodes").document(str(passcode))
+    #doc = doc_ref.get()
+    #if doc.exists:
+    #    data = doc.to_dict()
+    #    lock_time = data.get("lock_time")
+    #    if lock_time is not None:
+    #        # lock_time is already a timezone-aware datetime.
+    #        now = datetime.datetime.now(datetime.timezone.utc)
+    #        delta = now - lock_time
+    #        if delta.total_seconds() < lock_hours * 3600:
+    #            return True
+    #return False
 
 
 def lock_passcode(passcode):
