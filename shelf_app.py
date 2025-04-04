@@ -90,6 +90,21 @@ def load_exam_state():
         st.session_state.question_ids = data.get("question_ids", st.session_state.question_ids)
         st.session_state.email_sent = data.get("email_sent", False)
 
+def create_new_exam(full_df):
+    """
+    Samples 5 questions from full_df and initializes the exam state.
+    """
+    if len(full_df) >= 5:
+        sample_df = full_df.sample(n=5, replace=False)
+    else:
+        sample_df = full_df.sample(n=5, replace=True)
+    st.session_state.question_ids = list(sample_df["record_id"])
+    st.session_state.df = sample_df.reset_index(drop=True)
+    total_questions = len(st.session_state.df)
+    st.session_state.results = [None] * total_questions
+    st.session_state.selected_answers = [None] * total_questions
+    st.session_state.result_messages = ["" for _ in range(total_questions)]
+    
 def check_and_add_passcode(passcode):
     passcode_str = str(passcode)
     if passcode_str.lower() == "password":
