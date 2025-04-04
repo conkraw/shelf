@@ -283,18 +283,14 @@ def login_screen():
         if not user_name:
             st.error("Please enter your name to proceed.")
             return
-            
-        if is_passcode_locked(passcode_input, lock_hours=6):
-            st.error("This passcode is locked. Please try again later.")
-            return
-        
+
+        # Save the login details in session state.
         st.session_state.assigned_passcode = passcode_input
         recipient_email = st.secrets["recipients"][passcode_input]
         st.session_state.recipient_email = recipient_email
-        
         st.session_state.authenticated = True
         st.session_state.user_name = user_name
-        
+
         # Load the full dataset from CSVs.
         full_df = load_data()  # Loads all CSV files.
         
@@ -318,30 +314,37 @@ def login_screen():
         user_key = str(st.session_state.assigned_passcode)
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
-        if doc.exists:
+
+                if doc.exists:
             data = doc.to_dict()
-            st.session_state.question_index = data.get("question_index", 0)
-            st.session_state.score = data.get("score", 0)
-            st.session_state.results = data.get("results", st.session_state.results)
-            st.session_state.selected_answers = data.get("selected_answers", st.session_state.selected_answers)
-            st.session_state.result_messages = data.get("result_messages", st.session_state.result_messages)
-            st.session_state.question_ids = data.get("question_ids", st.session_state.question_ids)
-            if st.session_state.question_ids:
-                qids = st.session_state.question_ids
-                sample_df = full_df[full_df["record_id"].isin(qids)]
-                sample_df = sample_df.set_index("record_id").loc[qids].reset_index()
-                st.session_state.df = sample_df
+            # Check if the saved session is complete.
+            if data.get("exam_complete", False):
+                # Exam was complete; now check if the lock period is still active.
+                if is_passcode_locked(passcode_input, lock_seconds=120):
+                    st.error("This passcode is locked. Please try again later.")
+                    return
+                else:
+                    # Lock period has expired—delete the old session and create a new exam.
+                    doc_ref.delete()
+                    create_new_exam(full_df)
             else:
-                st.session_state.df = full_df
+                # Resume the incomplete exam session.
+                st.session_state.question_index = data.get("question_index", 0)
+                st.session_state.score = data.get("score", 0)
+                st.session_state.results = data.get("results", [])
+                st.session_state.selected_answers = data.get("selected_answers", [])
+                st.session_state.result_messages = data.get("result_messages", [])
+                st.session_state.question_ids = data.get("question_ids", [])
+                if st.session_state.question_ids:
+                    qids = st.session_state.question_ids
+                    sample_df = full_df[full_df["record_id"].isin(qids)]
+                    sample_df = sample_df.set_index("record_id").loc[qids].reset_index()
+                    st.session_state.df = sample_df
+                else:
+                    st.session_state.df = full_df
         else:
-            # No saved exam state: sample 5 questions without repeating used cases.
-            sample_df = sample_new_exam(full_df, n=5)
-            st.session_state.question_ids = list(sample_df["record_id"])
-            st.session_state.df = sample_df.reset_index(drop=True)
-            total_questions = len(st.session_state.df)
-            st.session_state.results = [None] * total_questions
-            st.session_state.selected_answers = [None] * total_questions
-            st.session_state.result_messages = ["" for _ in range(total_questions)]
+            # No saved session exists: create a new exam.
+            create_new_exam(full_df)
         
         st.rerun()
 
@@ -372,42 +375,40 @@ def exam_screen():
         percentage = (st.session_state.score / total_questions) * 100
         st.header("Exam Completed")
         st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}** ({percentage:.1f}%).")
-        # (Review email logic omitted for brevity)
-
-
-        locked = check_and_add_passcode(st.session_state.assigned_passcode)
-        if not locked:
+        
+        # Mark the exam as complete.
+        st.session_state.exam_complete = True
+        save_exam_state()  # Save the complete state.
+        
+        # Lock the passcode if not already locked.
+        if not is_passcode_locked(st.session_state.assigned_passcode, lock_seconds=120):
             lock_passcode(st.session_state.assigned_passcode)
-            st.success("Your passcode has now been locked and cannot be used again.")
-            
-            # Send review email only if it hasn't been sent yet.
-            if not st.session_state.get("email_sent", False):
-                wrong_indices = [i for i, result in enumerate(st.session_state.results) if result == "incorrect"]
-                if wrong_indices:
-                    selected_index = random.choice(wrong_indices)
-                    selected_row = st.session_state.df.iloc[selected_index]
-                    user_selected_letter = st.session_state.selected_answers[selected_index]
-                    # Include the student's name in the filename.
-                    doc_filename = f"review_{st.session_state.user_name}_q{selected_index+1}.docx"
-                    generate_review_doc(selected_row, user_selected_letter, output_filename=doc_filename)
-                    try:
-                        send_email_with_attachment(
-                            to_emails=[st.session_state.recipient_email],
-                            subject="Review of an Incorrect Question",
-                            body="Please find attached a review document for a question answered incorrectly.",
-                            attachment_path=doc_filename
-                        )
-                        st.success("Review email sent successfully!")
-                        st.session_state.email_sent = True  # Mark email as sent.
-                        save_exam_state()  # Update the state in Firestore.
-                    except Exception as e:
-                        st.error(f"Error sending email: {e}")
-                else:
-                    st.info("No incorrect answers to review!")
+            st.success("Your passcode has now been locked for 120 seconds and cannot be used again.")
+        
+        # Send review email only once.
+        if not st.session_state.get("email_sent", False):
+            wrong_indices = [i for i, result in enumerate(st.session_state.results) if result == "incorrect"]
+            if wrong_indices:
+                selected_index = random.choice(wrong_indices)
+                selected_row = st.session_state.df.iloc[selected_index]
+                doc_filename = f"review_{st.session_state.user_name}_q{selected_index+1}.docx"
+                generate_review_doc(selected_row, st.session_state.selected_answers[selected_index], output_filename=doc_filename)
+                try:
+                    send_email_with_attachment(
+                        to_emails=[st.session_state.recipient_email],
+                        subject="Review of an Incorrect Question",
+                        body="Please find attached a review document for a question answered incorrectly.",
+                        attachment_path=doc_filename
+                    )
+                    st.success("Review email sent successfully!")
+                    st.session_state.email_sent = True
+                    save_exam_state()
+                except Exception as e:
+                    st.error(f"Error sending email: {e}")
             else:
-                st.info("Review email has already been sent for this exam.")
+                st.info("No incorrect answers to review!")
         else:
-            st.info("This passcode has already been locked. No new exam will be created.")
+            st.info("Review email has already been sent for this exam.")
         return
 
     # Get the current row
