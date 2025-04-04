@@ -329,28 +329,22 @@ def login_screen():
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
         
-        # Check if a saved exam session exists.
         if doc.exists:
+            # Resume saved exam session (whether exam_complete is True or not).
             data = doc.to_dict()
-            # If the exam is not marked complete, resume it.
-            if not data.get("exam_complete", False):
-                st.session_state.question_index = data.get("question_index", 0)
-                st.session_state.score = data.get("score", 0)
-                st.session_state.results = data.get("results", [])
-                st.session_state.selected_answers = data.get("selected_answers", [])
-                st.session_state.result_messages = data.get("result_messages", [])
-                st.session_state.question_ids = data.get("question_ids", [])
-                if st.session_state.question_ids:
-                    qids = st.session_state.question_ids
-                    sample_df = full_df[full_df["record_id"].isin(qids)]
-                    sample_df = sample_df.set_index("record_id").loc[qids].reset_index()
-                    st.session_state.df = sample_df
-                else:
-                    st.session_state.df = full_df
+            st.session_state.question_index = data.get("question_index", 0)
+            st.session_state.score = data.get("score", 0)
+            st.session_state.results = data.get("results", [])
+            st.session_state.selected_answers = data.get("selected_answers", [])
+            st.session_state.result_messages = data.get("result_messages", [])
+            st.session_state.question_ids = data.get("question_ids", [])
+            if st.session_state.question_ids:
+                qids = st.session_state.question_ids
+                sample_df = full_df[full_df["record_id"].isin(qids)]
+                sample_df = sample_df.set_index("record_id").loc[qids].reset_index()
+                st.session_state.df = sample_df
             else:
-                # The exam was completed; delete old session and start a new exam.
-                doc_ref.delete()
-                create_new_exam(full_df)
+                st.session_state.df = full_df
         else:
             # No saved session exists: create a new exam.
             create_new_exam(full_df)
@@ -384,10 +378,11 @@ def exam_screen():
         percentage = (st.session_state.score / total_questions) * 100
         st.header("Exam Completed")
         st.write(f"Your final score is **{st.session_state.score}** out of **{total_questions}** ({percentage:.1f}%).")
-
+        
+        # Mark exam as complete.
         st.session_state.exam_complete = True
         save_exam_state()  # Save the complete state.
-
+        
         locked = check_and_add_passcode(st.session_state.assigned_passcode)
         if not locked:
             lock_passcode(st.session_state.assigned_passcode)
@@ -399,10 +394,8 @@ def exam_screen():
                 if wrong_indices:
                     selected_index = random.choice(wrong_indices)
                     selected_row = st.session_state.df.iloc[selected_index]
-                    user_selected_letter = st.session_state.selected_answers[selected_index]
-                    # Include the student's name in the filename.
                     doc_filename = f"review_{st.session_state.user_name}_q{selected_index+1}.docx"
-                    generate_review_doc(selected_row, user_selected_letter, output_filename=doc_filename)
+                    generate_review_doc(selected_row, st.session_state.selected_answers[selected_index], output_filename=doc_filename)
                     try:
                         send_email_with_attachment(
                             to_emails=[st.session_state.recipient_email],
@@ -411,8 +404,8 @@ def exam_screen():
                             attachment_path=doc_filename
                         )
                         st.success("Review email sent successfully!")
-                        st.session_state.email_sent = True  # Mark email as sent.
-                        save_exam_state()  # Update the state in Firestore.
+                        st.session_state.email_sent = True
+                        save_exam_state()
                     except Exception as e:
                         st.error(f"Error sending email: {e}")
                 else:
