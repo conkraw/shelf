@@ -4,6 +4,7 @@ import os
 import glob
 import random
 import datetime
+import re
 
 from docx import Document
 from docx.shared import Inches
