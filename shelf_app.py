@@ -208,9 +208,24 @@ def sample_new_exam(full_df, n=5):
     mark_questions_as_used(sample_df["record_id"].tolist())
     return sample_df
 
+def clean_text(text):
+    """
+    Removes control characters (richtext characters) from a string.
+    """
+    if isinstance(text, str):
+        # Remove characters in the Unicode ranges U+0000-U+001F and U+007F-U+009F.
+        return re.sub(r'[\x00-\x1F\x7F-\x9F]', '', text)
+    return text
+
 def load_data(pattern="*.csv"):
     csv_files = glob.glob(pattern)
-    dfs = [pd.read_csv(file) for file in csv_files]
+    dfs = []
+    for file in csv_files:
+        df = pd.read_csv(file)
+        # Apply cleaning to all object (string) columns.
+        for col in df.select_dtypes(include=['object']).columns:
+            df[col] = df[col].apply(clean_text)
+        dfs.append(df)
     combined_df = pd.concat(dfs, ignore_index=True)
     if "record_id" not in combined_df.columns:
         combined_df["record_id"] = combined_df.index + 1
