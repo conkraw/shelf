@@ -331,7 +331,7 @@ def save_exam_results():
     
     # Save to the "exam_results" collection.
     db.collection("exam_results").add(exam_summary)
-    st.success("Exam results have been saved to Firestore.")
+    st.success("Thank you for your participation!")
     
 ### Login Screen
 
