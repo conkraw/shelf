@@ -467,7 +467,7 @@ def exam_screen():
                         body="Please find attached a review document for a question answered incorrectly.",
                         attachment_path=doc_filename
                     )
-                    st.success("Review email sent successfully!")
+                    #st.success("Review email sent successfully!")
                     st.session_state.email_sent = True
                     save_exam_state()
                 except Exception as e:
