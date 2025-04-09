@@ -284,6 +284,55 @@ def send_email_with_attachment(to_emails, subject, body, attachment_path):
     except Exception as e:
         st.error(f"Error sending email: {e}")
 
+def save_exam_results():
+    """
+    Collects exam results details and saves them to the 'exam_results' collection in Firestore.
+    The details include for each question:
+      - record_id
+      - student's answer (the letter)
+      - correct answer text
+      - a result flag ("Correct" or "Incorrect")
+    It also saves the student's name, the passcode used, and the overall score.
+    """
+    exam_data = []
+    df = st.session_state.df  # This is the exam DataFrame for this session.
+    # Iterate over each question in the exam.
+    for idx, row in df.iterrows():
+        record = {}
+        record["record_id"] = row["record_id"]
+        
+        # Get the student's answer for this question.
+        student_ans = st.session_state.selected_answers[idx]
+        record["student_answer"] = student_ans if student_ans is not None else ""
+        
+        # Determine correct answer: we assume your DataFrame has a "correct_answer" field,
+        # and answer choices are stored in columns like "answerchoice_a", "answerchoice_b", etc.
+        correct_letter = str(row["correct_answer"]).strip().lower()
+        correct_answer_text = row.get("answerchoice_" + correct_letter, "")
+        record["correct_answer"] = correct_answer_text
+        
+        # Set result.
+        if student_ans and student_ans == correct_letter:
+            record["result"] = "Correct"
+        else:
+            record["result"] = "Incorrect"
+        
+        exam_data.append(record)
+    
+    # Prepare a summary dictionary.
+    exam_summary = {
+        "student_name": st.session_state.user_name,
+        "passcode": st.session_state.assigned_passcode,
+        "score": st.session_state.score,
+        "total_questions": len(df),
+        "exam_data": exam_data,
+        "timestamp": firestore.SERVER_TIMESTAMP,
+    }
+    
+    # Save to the "exam_results" collection.
+    db.collection("exam_results").add(exam_summary)
+    st.success("Exam results have been saved to Firestore.")
+    
 ### Login Screen
 
 def login_screen():
@@ -427,6 +476,8 @@ def exam_screen():
                 st.info("No incorrect answers to review!")
         else:
             st.info("Review email has already been sent for this exam.")
+        
+        save_exam_results()
         return
 
     # Get the current row
