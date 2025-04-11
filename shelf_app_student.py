@@ -455,19 +455,14 @@ def exam_screen():
                 selected_index = random.choice(wrong_indices)
                 selected_row = st.session_state.df.iloc[selected_index]
                 doc_filename = f"review_{st.session_state.user_name}_q{selected_index+1}.docx"
-                generate_review_doc(selected_row, st.session_state.selected_answers[selected_index], output_filename=doc_filename)
+                #generate_review_doc(selected_row, st.session_state.selected_answers[selected_index], output_filename=doc_filename)
                 try:
-                    send_email_with_attachment(
-                        to_emails=[st.session_state.recipient_email],
-                        subject="Review of an Incorrect Question",
-                        body="Please find attached a review document for a question answered incorrectly.",
-                        attachment_path=doc_filename
-                    )
+                    #send_email_with_attachment(to_emails=[st.session_state.recipient_email], subject="Review of an Incorrect Question", body="Please find attached a review document for a question answered incorrectly.",attachment_path=doc_filename)
                     #st.success("Review email sent successfully!")
-                    st.session_state.email_sent = True
+                    #st.session_state.email_sent = True
                     save_exam_state()
                 except Exception as e:
-                    st.error(f"Error sending email: {e}")
+                    st.error(f"Error: {e}")
             else:
                 st.info("No incorrect answers to review!")
         else:
