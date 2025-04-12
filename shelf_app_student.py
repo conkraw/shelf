@@ -354,6 +354,18 @@ def login_screen():
         st.session_state.user_name = assigned_user
         st.session_state.authenticated = True
 
+        try:
+            recs_df = pd.read_csv("recs.csv")  # Adjust the path if necessary.
+            # Assuming recs.csv has columns "username" and "subject"
+            user_recs = recs_df[recs_df["username"].str.lower() == st.session_state.user_name.lower()]
+            if not user_recs.empty:
+                st.session_state.recommended_subject = user_recs.iloc[0]["subject"]
+            else:
+                st.session_state.recommended_subject = None
+        except Exception as e:
+            st.session_state.recommended_subject = None
+            st.warning("No recommendations file found or error reading the file.")
+
         # Load the full dataset from CSVs.
         full_df = load_data()  # Loads all CSV files.
         
