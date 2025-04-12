@@ -512,6 +512,9 @@ def exam_screen():
 
     # Get the current row
     current_row = df.iloc[st.session_state.question_index]
+
+    if current_row.get("recommended_flag", False):
+    st.write("**Clerkship Recommended**")
     
     # Check if the current row has the expected keys. For example, verify "answerchoice_a" exists.
     if "answerchoice_a" not in current_row:
