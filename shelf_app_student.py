@@ -92,19 +92,46 @@ def load_exam_state():
         st.session_state.email_sent = data.get("email_sent", False)
 
 def create_new_exam(full_df):
-    """
-    Samples 5 questions from full_df and initializes the exam state.
-    """
-    if len(full_df) >= 5:
-        sample_df = full_df.sample(n=5, replace=False)
+    recommended_subject = st.session_state.get("recommended_subject")
+    recommended_question = None
+
+    if recommended_subject is not None:
+        # Filter for questions matching the recommended subject.
+        rec_df = full_df[full_df["subject"] == recommended_subject]
+        if not rec_df.empty:
+            recommended_question = rec_df.sample(n=1, replace=False)
+            # Mark this question as recommended.
+            recommended_question = recommended_question.copy()
+            recommended_question["recommended_flag"] = True
+            # Remove the selected question from the full DataFrame
+            full_df = full_df.drop(recommended_question.index)
+    
+    # Determine how many remaining questions to sample (total of 5 exam questions)
+    remaining_n = 5 - 1 if recommended_question is not None else 5
+
+    # Sample the remaining questions.
+    if len(full_df) >= remaining_n:
+        sample_df = full_df.sample(n=remaining_n, replace=False)
     else:
-        sample_df = full_df.sample(n=5, replace=True)
+        sample_df = full_df.sample(n=remaining_n, replace=True)
+
+    # If we have a recommended question, add it back to the sample.
+    if recommended_question is not None:
+        # Ensure that other questions get a flag set to False
+        sample_df = sample_df.copy()
+        sample_df["recommended_flag"] = False
+        sample_df = pd.concat([recommended_question, sample_df])
+    
+    # (Optional) Shuffle the final set so the recommended question appears at a random position.
+    sample_df = sample_df.sample(frac=1).reset_index(drop=True)
+
     st.session_state.question_ids = list(sample_df["record_id"])
     st.session_state.df = sample_df.reset_index(drop=True)
     total_questions = len(st.session_state.df)
     st.session_state.results = [None] * total_questions
     st.session_state.selected_answers = [None] * total_questions
     st.session_state.result_messages = ["" for _ in range(total_questions)]
+
     
 def check_and_add_passcode(passcode):
     passcode_str = str(passcode)
