@@ -99,34 +99,38 @@ def create_new_exam(full_df):
         # Filter for questions matching the recommended subject.
         rec_df = full_df[full_df["subject"] == recommended_subject]
         if not rec_df.empty:
-            recommended_question = rec_df.sample(n=1, replace=False).copy()
+            recommended_question = rec_df.sample(n=1, replace=False)
+            # Mark this question as recommended.
+            recommended_question = recommended_question.copy()
             recommended_question["recommended_flag"] = True
-            # Remove the selected recommended question from the full pool
+            # Remove the selected question from the full DataFrame
             full_df = full_df.drop(recommended_question.index)
     
-    # Determine how many remaining questions to sample (total exam = 5 questions).
+    # Determine how many remaining questions to sample (total of 5 exam questions)
     remaining_n = 5 - 1 if recommended_question is not None else 5
+
+    # Sample the remaining questions.
     if len(full_df) >= remaining_n:
         sample_df = full_df.sample(n=remaining_n, replace=False)
     else:
         sample_df = full_df.sample(n=remaining_n, replace=True)
-    
-    # If we have a recommended question, flag others as not recommended.
+
+    # If we have a recommended question, add it back to the sample.
     if recommended_question is not None:
+        # Ensure that other questions get a flag set to False
         sample_df = sample_df.copy()
         sample_df["recommended_flag"] = False
         sample_df = pd.concat([recommended_question, sample_df])
     
-    # Shuffle so the recommended question may appear randomly.
+    # (Optional) Shuffle the final set so the recommended question appears at a random position.
     sample_df = sample_df.sample(frac=1).reset_index(drop=True)
-    
+
     st.session_state.question_ids = list(sample_df["record_id"])
     st.session_state.df = sample_df.reset_index(drop=True)
     total_questions = len(st.session_state.df)
     st.session_state.results = [None] * total_questions
     st.session_state.selected_answers = [None] * total_questions
     st.session_state.result_messages = ["" for _ in range(total_questions)]
-
 
     
 def check_and_add_passcode(passcode):
@@ -377,28 +381,37 @@ def login_screen():
         st.session_state.user_name = assigned_user
         st.session_state.authenticated = True
 
-        # -------------------------------------------------------------
-        # Modified Recommendation File Lookup to handle duplicate subjects:
-        # -------------------------------------------------------------
+        ######FIREBASE MUST BE WRITTEN AS A NUMBER... 19 = NUMBER, NOT STRING. 
         try:
-            recs_df = pd.read_csv("recs.csv")  # Adjust the path if needed.
-            # Make sure the username column exists in recs.csv; assumed column names: 'username' and 'subject'
+            # Retrieve all documents from the "recommendations" collection.
+            rec_docs = db.collection("recommendations").stream()
+            
+            # Convert each document to a dictionary and include the document ID (which may serve as a username).
+            recs_list = []
+            for doc in rec_docs:
+                rec_data = doc.to_dict()
+                # Add the document ID as a field (e.g., "username") if it's not already in the data.
+                rec_data["username"] = doc.id
+                recs_list.append(rec_data)
+            
+            # Convert the list of recommendation dictionaries into a DataFrame.
+            recs_df = pd.DataFrame(recs_list)
+            
+            # Display the DataFrame for debugging purposes.
+            st.write("Recommendations DataFrame:", recs_df)
+            
+            # Filter the DataFrame for the current user (assuming case-insensitive match).
             user_recs = recs_df[recs_df["username"].str.lower() == st.session_state.user_name.lower()]
             if not user_recs.empty:
-                # Get unique subject values from the user's recommendations.
-                unique_subjects = list(user_recs["subject"].dropna().unique())
-                if unique_subjects:
-                    # Choose one unique subject at random (or apply your selection criteria).
-                    chosen_subject = random.choice(unique_subjects)
-                    st.session_state.recommended_subject = chosen_subject
-                else:
-                    st.session_state.recommended_subject = None
+                recommended_subject = user_recs.iloc[0]["subject"]
+                st.session_state.recommended_subject = recommended_subject
+                st.write(f"Recommended subject: {recommended_subject}")
             else:
                 st.session_state.recommended_subject = None
+                st.warning(f"No recommendation found for {st.session_state.user_name}.")
         except Exception as e:
             st.session_state.recommended_subject = None
-            st.warning("No recommendations file found or error reading the file.")
-        # -------------------------------------------------------------
+            st.warning("Error retrieving recommendations: " + str(e))
 
         # Load the full dataset from CSVs.
         full_df = load_data()  # Loads all CSV files.
@@ -456,7 +469,6 @@ def login_screen():
             create_new_exam(full_df)
         
         st.rerun()
-
 
 ### Exam Screen
 
@@ -520,9 +532,10 @@ def exam_screen():
 
     # Get the current row
     current_row = df.iloc[st.session_state.question_index]
+
     if current_row.get("recommended_flag", False):
         st.write("**Clerkship Recommended**")
-
+    
     # Check if the current row has the expected keys. For example, verify "answerchoice_a" exists.
     if "answerchoice_a" not in current_row:
         st.error("No further questions available for your exam. Please try again later.")
