@@ -382,26 +382,35 @@ def login_screen():
         st.session_state.authenticated = True
 
         try:
-            doc_ref = db.collection("recommendations").document(st.session_state.user_name)
-            doc = doc_ref.get()
-            if doc.exists:
-                data = doc.to_dict()
-                # data should look like {"subject": "19"}
-                recommended_subject = data.get("subject", None)
+            # Retrieve all documents from the "recommendations" collection.
+            rec_docs = db.collection("recommendations").stream()
+            
+            # Convert each document to a dictionary and include the document ID (which may serve as a username).
+            recs_list = []
+            for doc in rec_docs:
+                rec_data = doc.to_dict()
+                # Add the document ID as a field (e.g., "username") if it's not already in the data.
+                rec_data["username"] = doc.id
+                recs_list.append(rec_data)
+            
+            # Convert the list of recommendation dictionaries into a DataFrame.
+            recs_df = pd.DataFrame(recs_list)
+            
+            # Display the DataFrame for debugging purposes.
+            st.write("Recommendations DataFrame:", recs_df)
+            
+            # Filter the DataFrame for the current user (assuming case-insensitive match).
+            user_recs = recs_df[recs_df["username"].str.lower() == st.session_state.user_name.lower()]
+            if not user_recs.empty:
+                recommended_subject = user_recs.iloc[0]["subject"]
+                st.session_state.recommended_subject = recommended_subject
                 st.write(f"Recommended subject: {recommended_subject}")
             else:
-                st.warning(f"No recommendation found for {st.session_state.user_name}")
-    
-            #recs_df = pd.read_csv("recs.csv")  # Adjust the path if necessary.
-            # Assuming recs.csv has columns "username" and "subject"
-            #user_recs = recs_df[recs_df["username"].str.lower() == st.session_state.user_name.lower()]
-            #if not user_recs.empty:
-            #    st.session_state.recommended_subject = user_recs.iloc[0]["subject"]
-            #else:
-            #    st.session_state.recommended_subject = None
+                st.session_state.recommended_subject = None
+                st.warning(f"No recommendation found for {st.session_state.user_name}.")
         except Exception as e:
             st.session_state.recommended_subject = None
-            st.warning("No recommendations file found or error reading the file.")
+            st.warning("Error retrieving recommendations: " + str(e))
 
         # Load the full dataset from CSVs.
         full_df = load_data()  # Loads all CSV files.
