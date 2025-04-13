@@ -381,6 +381,7 @@ def login_screen():
         st.session_state.user_name = assigned_user
         st.session_state.authenticated = True
 
+        ######FIREBASE MUST BE WRITTEN AS A NUMBER... 19 = NUMBER, NOT STRING. 
         try:
             # Retrieve all documents from the "recommendations" collection.
             rec_docs = db.collection("recommendations").stream()
