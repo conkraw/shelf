@@ -381,37 +381,28 @@ def login_screen():
         st.session_state.user_name = assigned_user
         st.session_state.authenticated = True
 
-        ######FIREBASE MUST BE WRITTEN AS A NUMBER... 19 = NUMBER, NOT STRING. 
+        # -------------------------------------------------------------
+        # Modified Recommendation File Lookup to handle duplicate subjects:
+        # -------------------------------------------------------------
         try:
-            # Retrieve all documents from the "recommendations" collection.
-            rec_docs = db.collection("recommendations").stream()
-            
-            # Convert each document to a dictionary and include the document ID (which may serve as a username).
-            recs_list = []
-            for doc in rec_docs:
-                rec_data = doc.to_dict()
-                # Add the document ID as a field (e.g., "username") if it's not already in the data.
-                rec_data["username"] = doc.id
-                recs_list.append(rec_data)
-            
-            # Convert the list of recommendation dictionaries into a DataFrame.
-            recs_df = pd.DataFrame(recs_list)
-            
-            # Display the DataFrame for debugging purposes.
-            st.write("Recommendations DataFrame:", recs_df)
-            
-            # Filter the DataFrame for the current user (assuming case-insensitive match).
+            recs_df = pd.read_csv("recs.csv")  # Adjust the path if needed.
+            # Make sure the username column exists in recs.csv; assumed column names: 'username' and 'subject'
             user_recs = recs_df[recs_df["username"].str.lower() == st.session_state.user_name.lower()]
             if not user_recs.empty:
-                recommended_subject = user_recs.iloc[0]["subject"]
-                st.session_state.recommended_subject = recommended_subject
-                st.write(f"Recommended subject: {recommended_subject}")
+                # Get unique subject values from the user's recommendations.
+                unique_subjects = list(user_recs["subject"].dropna().unique())
+                if unique_subjects:
+                    # Choose one unique subject at random (or apply your selection criteria).
+                    chosen_subject = random.choice(unique_subjects)
+                    st.session_state.recommended_subject = chosen_subject
+                else:
+                    st.session_state.recommended_subject = None
             else:
                 st.session_state.recommended_subject = None
-                st.warning(f"No recommendation found for {st.session_state.user_name}.")
         except Exception as e:
             st.session_state.recommended_subject = None
-            st.warning("Error retrieving recommendations: " + str(e))
+            st.warning("No recommendations file found or error reading the file.")
+        # -------------------------------------------------------------
 
         # Load the full dataset from CSVs.
         full_df = load_data()  # Loads all CSV files.
@@ -469,6 +460,7 @@ def login_screen():
             create_new_exam(full_df)
         
         st.rerun()
+
 
 ### Exam Screen
 
