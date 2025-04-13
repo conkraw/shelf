@@ -382,13 +382,23 @@ def login_screen():
         st.session_state.authenticated = True
 
         try:
-            recs_df = pd.read_csv("recs.csv")  # Adjust the path if necessary.
-            # Assuming recs.csv has columns "username" and "subject"
-            user_recs = recs_df[recs_df["username"].str.lower() == st.session_state.user_name.lower()]
-            if not user_recs.empty:
-                st.session_state.recommended_subject = user_recs.iloc[0]["subject"]
+            doc_ref = db.collection("recommendations").document(st.session_state.user_name)
+            doc = doc_ref.get()
+            if doc.exists:
+                data = doc.to_dict()
+                # data should look like {"subject": "19"}
+                recommended_subject = data.get("subject", None)
+                st.write(f"Recommended subject: {recommended_subject}")
             else:
-                st.session_state.recommended_subject = None
+                st.warning(f"No recommendation found for {st.session_state.user_name}")
+    
+            #recs_df = pd.read_csv("recs.csv")  # Adjust the path if necessary.
+            # Assuming recs.csv has columns "username" and "subject"
+            #user_recs = recs_df[recs_df["username"].str.lower() == st.session_state.user_name.lower()]
+            #if not user_recs.empty:
+            #    st.session_state.recommended_subject = user_recs.iloc[0]["subject"]
+            #else:
+            #    st.session_state.recommended_subject = None
         except Exception as e:
             st.session_state.recommended_subject = None
             st.warning("No recommendations file found or error reading the file.")
