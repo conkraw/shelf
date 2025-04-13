@@ -403,9 +403,11 @@ def login_screen():
             # Filter the DataFrame for the current user (assuming case-insensitive match).
             user_recs = recs_df[recs_df["username"].str.lower() == st.session_state.user_name.lower()]
             if not user_recs.empty:
-                recommended_subject = user_recs.iloc[0]["subject"]
-                st.session_state.recommended_subject = recommended_subject
-                st.write(f"Recommended subject: {recommended_subject}")
+                unique_subjects = user_recs["subject"].dropna().unique()
+                unique_subjects = list(unique_subjects)
+                chosen_subject = random.choice(unique_subjects)
+                st.session_state.recommended_subject = chosen_subject
+                st.write(f"Recommended subject: {chosen_subject}")
             else:
                 st.session_state.recommended_subject = None
                 st.warning(f"No recommendation found for {st.session_state.user_name}.")
