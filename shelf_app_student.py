@@ -636,12 +636,21 @@ def exam_screen():
             st.write("**Explanation:**")
             st.write(current_row["answer_explanation"])
             
-            if st.button("Next Question"):
-                st.session_state.question_index += 1
-                st.session_state.result_message = ""
-                st.session_state.result_color = ""
-                save_exam_state()
-                st.rerun()
+            # Check if this is the last question.
+            if st.session_state.question_index == total_questions - 1:
+                # Last question: show "Submit and End Exam" button.
+                if st.button("Submit and End Exam"):
+                    st.session_state.exam_complete = True
+                    save_exam_state()  # Save the final state.
+                    st.rerun()
+            else:
+                # For other questions, show "Next Question."
+                if st.button("Next Question"):
+                    st.session_state.question_index += 1
+                    st.session_state.result_message = ""
+                    st.session_state.result_color = ""
+                    save_exam_state()
+                    st.rerun()
 
 
 def main():
