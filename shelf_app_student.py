@@ -360,25 +360,23 @@ def store_pending_recommendation_if_incorrect():
 def get_pending_recommendation_for_user(user_name):
     """
     Queries the pending_recommendations collection for a recommended question for the given user
-    that is due (next_due <= now) and returns the one with the earliest due date.
+    and returns the record_id of the one with the earliest due date.
+    After retrieving, it deletes that pending recommendation so it won't be reused.
     """
-    now = datetime.datetime.now(datetime.timezone.utc)
-    query = db.collection("pending_recommendations") \
-              .where("user_name", "==", user_name) \
-              .where("next_due", "<=", now) \
-              .stream()
-    
+    # Query all pending recommendations for the given user.
+    query = db.collection("pending_recommendations").where("user_name", "==", user_name).stream()
     pending_recs = list(query)
     if pending_recs:
-        # Sort the documents by the 'next_due' field in ascending order
+        # Sort the documents by the 'next_due' field in ascending order.
         pending_docs = sorted(pending_recs, key=lambda doc: doc.to_dict().get("next_due"))
-        # Choose the pending recommendation with the earliest due date
+        # Choose the pending recommendation with the earliest due date.
         pending_doc = pending_docs[0]
         pending_data = pending_doc.to_dict()
-        # Optionally, remove it from the pending collection after retrieving it.
+        # Delete the pending recommendation document.
         pending_doc.reference.delete()
         return pending_data["record_id"]
     return None
+
 
 
 def save_exam_results():
