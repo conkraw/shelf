@@ -343,7 +343,7 @@ def store_pending_recommendation_if_incorrect():
 def get_pending_recommendation_for_user(user_name):
     """
     Queries the pending_recommendations collection for a recommended question for the given user
-    that is due (next_due <= now). If one is found, it returns the record_id.
+    that is due (next_due <= now) and returns the one with the earliest due date.
     """
     now = datetime.datetime.now(datetime.timezone.utc)
     query = db.collection("pending_recommendations") \
@@ -353,10 +353,12 @@ def get_pending_recommendation_for_user(user_name):
     
     pending_recs = list(query)
     if pending_recs:
-        # Optionally, choose one randomly if more than one is due.
-        pending_doc = random.choice(pending_recs)
+        # Sort the documents by the 'next_due' field in ascending order
+        pending_docs = sorted(pending_recs, key=lambda doc: doc.to_dict().get("next_due"))
+        # Choose the pending recommendation with the earliest due date
+        pending_doc = pending_docs[0]
         pending_data = pending_doc.to_dict()
-        # Remove or mark the pending recommendation as used.
+        # Optionally, remove it from the pending collection after retrieving it.
         pending_doc.reference.delete()
         return pending_data["record_id"]
     return None
