@@ -98,6 +98,8 @@ def create_new_exam(full_df):
     pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
     recommended_question = None
 
+    st.stop()
+    
     if pending_rec_id is not None:
         # Retrieve from the original full_df (before filtering used questions).
         pending_df = full_df[full_df["record_id"] == pending_rec_id]
