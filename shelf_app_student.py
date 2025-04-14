@@ -390,8 +390,6 @@ def login_screen():
             recs_list = []
             for doc in rec_docs:
                 rec_data = doc.to_dict()
-                # Add the document ID as a field (e.g., "username") if it's not already in the data.
-                rec_data["username"] = doc.id
                 recs_list.append(rec_data)
             
             # Convert the list of recommendation dictionaries into a DataFrame.
