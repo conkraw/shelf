@@ -348,7 +348,6 @@ def store_pending_recommendation_if_incorrect():
                     "user_name": st.session_state.user_name,
                     "record_id": row["record_id"],
                     "next_due": due_time,
-                    "question_data": row.to_dict(),  # Optionally store more details.
                 }
                 db.collection("pending_recommendations").add(pending_data)
                 st.write(f"Pending clerkship recommended question stored for record {row['record_id']} for re-administration in 48 hours.")
