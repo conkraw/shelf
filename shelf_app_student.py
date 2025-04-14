@@ -130,8 +130,7 @@ def create_new_exam(full_df):
     #    so it won't be randomly sampled twice.
     if recommended_question is not None:
         full_df = full_df.drop(full_df[full_df["record_id"] == recommended_question["record_id"].iloc[0]].index)
-    
-    # 4. Determine how many remaining questions to sample.
+
     remaining_n = 5 - 1 if recommended_question is not None else 5
 
     if len(full_df) >= remaining_n:
@@ -139,13 +138,11 @@ def create_new_exam(full_df):
     else:
         sample_df = full_df.sample(n=remaining_n, replace=True)
 
-    # 5. Insert the recommended question into the sample if it exists.
     if recommended_question is not None:
         sample_df = sample_df.copy()
         sample_df["recommended_flag"] = False  # Mark these as not recommended.
         sample_df = pd.concat([recommended_question, sample_df])
     
-    # 6. Shuffle the final exam questions.
     sample_df = sample_df.sample(frac=1).reset_index(drop=True)
 
     st.session_state.question_ids = list(sample_df["record_id"])
@@ -154,8 +151,7 @@ def create_new_exam(full_df):
     st.session_state.results = [None] * total_questions
     st.session_state.selected_answers = [None] * total_questions
     st.session_state.result_messages = ["" for _ in range(total_questions)]
-    
-    # Optionally, mark the sampled questions as used.
+
     mark_questions_as_used(sample_df["record_id"].tolist())
 
     
