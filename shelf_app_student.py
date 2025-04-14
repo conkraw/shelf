@@ -104,7 +104,8 @@ def create_new_exam(full_df):
         if not pending_df.empty:
             recommended_question = pending_df.iloc[[0]].copy()  # get as a DataFrame slice
             recommended_question["recommended_flag"] = True
-            # We'll remove it from full_df later.
+        st.session_state.pending_rec_id = None
+        
     else:
         # Otherwise, use the normal process if a recommendation was set via Firebase.
         recommended_subject = st.session_state.get("recommended_subject")
