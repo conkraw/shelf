@@ -118,6 +118,7 @@ def create_new_exam(full_df):
     # 2. Filter out questions that have been used in the last 7 days.
     used_ids = get_global_used_questions()
     st.write("Used IDs:", used_ids)
+    st.stop()
     # If we have a pending recommended question (from firebase),
     # remove its record_id from the used_ids so it isn't filtered out.
     if recommended_question is not None:
