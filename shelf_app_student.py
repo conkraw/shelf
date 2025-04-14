@@ -478,8 +478,8 @@ def login_screen():
             recs_df = pd.DataFrame(recs_list)
             
             # Display the DataFrame for debugging purposes.
-            st.write("Recommendations DataFrame:", recs_df)
-            st.stop()
+            #st.write("Recommendations DataFrame:", recs_df)
+            #st.stop()
             
             # Filter the DataFrame for the current user (assuming case-insensitive match).
             user_recs = recs_df[recs_df["username"].str.lower() == st.session_state.user_name.lower()]
