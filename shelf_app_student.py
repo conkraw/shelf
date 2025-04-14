@@ -480,29 +480,29 @@ def exam_screen():
     total_questions = len(df)
     
     with st.sidebar:
-    st.header("Navigation")
-    for i in range(total_questions):
-        marker = ""
-        if st.session_state.results[i] == "correct":
-            marker = "✅"
-        elif st.session_state.results[i] == "incorrect":
-            marker = "❌"
-        current_marker = " (Current)" if i == st.session_state.question_index else ""
-        
-        # Set up a recommended icon if the question has the recommended flag.
-        rec_icon = ""
-        if "recommended_flag" in st.session_state.df.columns:
-            # Use direct indexing and check if the value is True.
-            if st.session_state.df.iloc[i]["recommended_flag"] == True:
-                rec_icon = " ⭐"  # Adjust icon and spacing as desired.
-        
-        label = f"Question {i+1}:{rec_icon} {marker}{current_marker}"
-        
-        if st.button(label, key=f"nav_{i}"):
-            st.session_state.question_index = i
-            st.rerun()
-
+        st.header("Navigation")
+        for i in range(total_questions):
+            marker = ""
+            if st.session_state.results[i] == "correct":
+                marker = "✅"
+            elif st.session_state.results[i] == "incorrect":
+                marker = "❌"
+            current_marker = " (Current)" if i == st.session_state.question_index else ""
+            
+            # Set up a recommended icon if the question has the recommended flag.
+            rec_icon = ""
+            if "recommended_flag" in st.session_state.df.columns:
+                # Use direct indexing and check if the value is True.
+                if st.session_state.df.iloc[i]["recommended_flag"] == True:
+                    rec_icon = " ⭐"  # Adjust icon and spacing as desired.
+            
+            label = f"Question {i+1}:{rec_icon} {marker}{current_marker}"
+            
+            if st.button(label, key=f"nav_{i}"):
+                st.session_state.question_index = i
+                st.rerun()
     
+        
     if st.session_state.question_index >= total_questions:
         percentage = (st.session_state.score / total_questions) * 100
         st.header("Exam Completed")
