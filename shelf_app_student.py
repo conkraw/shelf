@@ -95,7 +95,8 @@ def create_new_exam(full_df):
     # ----------------------------------------------------------
     # 1. Retrieve the pending recommended question (if any),
     #    regardless of its due date.
-    pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
+    #pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
+    pending_rec_id = st.session_state.get("pending_rec_id")
     recommended_question = None
 
     if pending_rec_id is not None:
