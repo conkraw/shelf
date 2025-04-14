@@ -487,6 +487,16 @@ def exam_screen():
                 marker = "✅"
             elif st.session_state.results[i] == "incorrect":
                 marker = "❌"
+
+            # Check if the question has a recommended flag and add a special marker.
+            rec_icon = ""
+            try:
+                question_row = st.session_state.df.iloc[i]
+                if question_row.get("recommended_flag", False):
+                    rec_icon = " ⭐"  # Star icon for recommended question.
+            except Exception as e:
+                rec_icon = ""
+            
             current_marker = " (Current)" if i == st.session_state.question_index else ""
             label = f"Question {i+1}: {marker}{current_marker}"
             if st.button(label, key=f"nav_{i}"):
