@@ -311,6 +311,54 @@ def send_email_with_attachment(to_emails, subject, body, attachment_path):
     except Exception as e:
         st.error(f"Error sending email: {e}")
 
+def store_pending_recommendation_if_incorrect():
+    """
+    Check the exam DataFrame for the clerkship recommended question.
+    If it was answered incorrectly, store it in a pending collection with a next_due timestamp 48 hours ahead.
+    """
+    df = st.session_state.df
+    # Look for the clerkship recommended question by its flag.
+    for idx, row in df.iterrows():
+        if row.get("recommended_flag", False):
+            # Check if this question was answered incorrectly.
+            if st.session_state.results[idx] != "correct":
+                due_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)
+                pending_data = {
+                    "user_name": st.session_state.user_name,
+                    "record_id": row["record_id"],
+                    "next_due": due_time,
+                    "question_data": row.to_dict(),  # Optionally store more details
+                }
+                # Save the pending recommendation
+                db.collection("pending_recommendations").add(pending_data)
+                st.write("Pending clerkship recommended question stored for re-administration in 48 hours.")
+            break  # assuming only one recommended question per exam
+
+# Then, in your existing save_exam_results() function,
+# call the above function right before finishing the save:
+
+def get_pending_recommendation_for_user(user_name):
+    """
+    Queries the pending_recommendations collection for a recommended question for the given user
+    that is due (next_due <= now). If one is found, it returns the record_id.
+    """
+    now = datetime.datetime.now(datetime.timezone.utc)
+    query = db.collection("pending_recommendations") \
+              .where("user_name", "==", user_name) \
+              .where("next_due", "<=", now) \
+              .stream()
+    
+    pending_recs = list(query)
+    if pending_recs:
+        # Optionally, choose one randomly if more than one is due.
+        pending_doc = random.choice(pending_recs)
+        pending_data = pending_doc.to_dict()
+        # Remove or mark the pending recommendation as used.
+        pending_doc.reference.delete()
+        return pending_data["record_id"]
+    return None
+
+
 def save_exam_results():
     """
     Collects exam results details and saves them to the 'exam_results' collection in Firestore.
@@ -325,29 +373,17 @@ def save_exam_results():
     
     exam_data = []
     df = st.session_state.df  # This is the exam DataFrame for this session.
-    # Iterate over each question in the exam.
+
     for idx, row in df.iterrows():
         record = {}
         record["record_id"] = row["record_id"]
-        
-        # Get the student's answer for this question.
         student_ans = st.session_state.selected_answers[idx]
         record["student_answer"] = student_ans if student_ans is not None else ""
-        
-        # Determine correct answer: we assume your DataFrame has a "correct_answer" field,
-        # and answer choices are stored in columns like "answerchoice_a", "answerchoice_b", etc.
         correct_letter = str(row["correct_answer"]).strip().lower()
         correct_answer_text = row.get("answerchoice_" + correct_letter, "")
         record["correct_answer"] = correct_answer_text
-        
-        # Set result.
-        if student_ans and student_ans == correct_letter:
-            record["result"] = "Correct"
-        else:
-            record["result"] = "Incorrect"
-
+        record["result"] = "Correct" if student_ans and student_ans == correct_letter else "Incorrect"
         record["clerkship_recommended"] = bool(row.get("recommended_flag", False))
-        
         exam_data.append(record)
     
     # Prepare a summary dictionary.
@@ -363,6 +399,8 @@ def save_exam_results():
     # Save to the "exam_results" collection.
     db.collection("exam_results").add(exam_summary)
     st.success("Thank you for your participation!")
+
+    store_pending_recommendation_if_incorrect()
     
 ### Login Screen
 
