@@ -677,15 +677,16 @@ def exam_screen():
                 st.success(result_msg)
             elif st.session_state.results[st.session_state.question_index] == "incorrect":
                 st.error(result_msg)
-            
+    
             st.write("**Explanation:**")
             st.write(current_row["answer_explanation"])
-            
+    
             # Check if this is the last question.
             if st.session_state.question_index == total_questions - 1:
                 # Last question: show "Submit and End Exam" button.
                 if st.button("Submit and End Exam"):
                     st.session_state.exam_complete = True
+                    st.session_state.question_index = total_questions  # Advance the index so the completed condition is met.
                     save_exam_state()  # Save the final state.
                     st.rerun()
             else:
