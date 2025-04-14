@@ -441,6 +441,9 @@ def login_screen():
         st.session_state.user_name = assigned_user
         st.session_state.authenticated = True
 
+        if "pending_rec_id" not in st.session_state:
+            st.session_state.pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
+
         ######FIREBASE MUST BE WRITTEN AS A NUMBER... 19 = NUMBER, NOT STRING. 
         try:
             # Retrieve all documents from the "recommendations" collection.
