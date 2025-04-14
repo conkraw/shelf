@@ -413,8 +413,6 @@ def login_screen():
             st.session_state.recommended_subject = None
             st.warning("Error retrieving recommendations: " + str(e))
 
-        st.stop()
-        
         # Load the full dataset from CSVs.
         full_df = load_data()  # Loads all CSV files.
         
