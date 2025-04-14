@@ -209,24 +209,27 @@ def get_image_path(record_id, folder="images"):
 
 def get_global_used_questions():
     """
-    Retrieves a list of question record_ids that have been used in the last 7 days.
-    Documents older than 7 days are deleted so questions can be reused.
+    Retrieves a list of question record_ids that have been used in the last 7 days
+    for the current user. Documents older than 7 days are deleted so questions can be reused.
     """
     used_questions_ref = db.collection("global_used_questions")
-    docs = used_questions_ref.stream()
+    # Query for documents where "user" equals the current user's name.
+    query = used_questions_ref.where("user", "==", st.session_state.user_name).stream()
+    
     used_ids = []
     now = datetime.datetime.utcnow()
-    for doc in docs:
+    for doc in query:
         data = doc.to_dict()
         ts = data.get("timestamp")
         if ts is not None:
             ts_naive = ts.replace(tzinfo=None)
-            if (now - ts_naive).days < 7:
-                used_ids.append(doc.id)
+            if (now - ts_naive).total_seconds() < 7 * 24 * 3600:
+                used_ids.append(data.get("record_id"))
             else:
                 # Delete outdated documents so questions become available.
                 doc.reference.delete()
     return used_ids
+
 
 def mark_questions_as_used(question_ids):
     used_questions_ref = db.collection("global_used_questions")
