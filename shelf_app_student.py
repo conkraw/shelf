@@ -229,17 +229,17 @@ def get_global_used_questions():
     return used_ids
 
 def mark_questions_as_used(question_ids):
-    """
-    Marks the given list of question_ids as used globally,
-    storing a timestamp so that they can be reset after 7 days.
-    """
     used_questions_ref = db.collection("global_used_questions")
     for qid in question_ids:
-        used_questions_ref.document(str(qid)).set({
+        # Create a compound key: userName_recordID
+        doc_id = f"{st.session_state.user_name}_{qid}"
+        used_questions_ref.document(doc_id).set({
+            "record_id": qid,
+            "user": st.session_state.user_name,
             "used": True,
             "timestamp": firestore.SERVER_TIMESTAMP
         })
-
+        
 def sample_new_exam(full_df, n=5):
     """
     Samples n questions from full_df that have not yet been used in the last 7 days.
