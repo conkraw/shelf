@@ -95,10 +95,8 @@ def create_new_exam(full_df):
     """
     Samples 5 questions from full_df and initializes the exam state.
     """
-    if len(full_df) >= 5:
-        sample_df = full_df.sample(n=5, replace=False)
-    else:
-        sample_df = full_df.sample(n=5, replace=True)
+    sample_df = sample_new_exam(full_df, n=5)
+    
     st.session_state.question_ids = list(sample_df["record_id"])
     st.session_state.df = sample_df.reset_index(drop=True)
     total_questions = len(st.session_state.df)
