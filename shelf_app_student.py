@@ -93,10 +93,9 @@ def load_exam_state():
 
 def create_new_exam(full_df):
     # ----------------------------------------------------------
-    # 1. Retrieve the pending recommended question (if any),
+    # 1. Retrieve the pending recommended question (if one is due).
     #    regardless of its due date.
-    #pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
-    pending_rec_id = st.session_state.get("pending_rec_id")
+    pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
     recommended_question = None
 
     if pending_rec_id is not None:
@@ -105,7 +104,6 @@ def create_new_exam(full_df):
         if not pending_df.empty:
             recommended_question = pending_df.iloc[[0]].copy()  # get as a DataFrame slice
             recommended_question["recommended_flag"] = True
-        st.session_state.pending_rec_id = None
         
     else:
         # Otherwise, use the normal process if a recommendation was set via Firebase.
