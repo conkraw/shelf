@@ -92,7 +92,13 @@ def load_exam_state():
         st.session_state.email_sent = data.get("email_sent", False)
 
 def create_new_exam(full_df):
-    # First, check if there is a pending recommended question for this user.
+    # =====================================================
+    # 1. Filter out questions that have been used in the last 7 days.
+    used_ids = get_global_used_questions()
+    full_df = full_df[~full_df["record_id"].isin(used_ids)]
+    # =====================================================
+    
+    # 2. Check if there is a pending recommended question for this user.
     pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
     recommended_question = None
 
@@ -101,8 +107,7 @@ def create_new_exam(full_df):
         pending_df = full_df[full_df["record_id"] == pending_rec_id]
         if not pending_df.empty:
             # Use it as the recommended question.
-            recommended_question = pending_df.iloc[[0]]  # get as a DataFrame slice
-            recommended_question = recommended_question.copy()
+            recommended_question = pending_df.iloc[[0]].copy()  # get as a DataFrame slice
             recommended_question["recommended_flag"] = True
             # Remove it from the full DataFrame so it isn't randomly sampled later.
             full_df = full_df.drop(recommended_question.index)
@@ -112,11 +117,11 @@ def create_new_exam(full_df):
         if recommended_subject is not None:
             rec_df = full_df[full_df["subject"] == recommended_subject]
             if not rec_df.empty:
-                recommended_question = rec_df.sample(n=1, replace=False)
-                recommended_question = recommended_question.copy()
+                recommended_question = rec_df.sample(n=1, replace=False).copy()
                 recommended_question["recommended_flag"] = True
                 full_df = full_df.drop(recommended_question.index)
 
+    # 3. Determine how many remaining questions to sample.
     remaining_n = 5 - 1 if recommended_question is not None else 5
 
     if len(full_df) >= remaining_n:
@@ -124,20 +129,25 @@ def create_new_exam(full_df):
     else:
         sample_df = full_df.sample(n=remaining_n, replace=True)
 
+    # 4. If there is a recommended question, add it into the sample.
     if recommended_question is not None:
         sample_df = sample_df.copy()
-        sample_df["recommended_flag"] = False
+        sample_df["recommended_flag"] = False  # Explicitly mark others as not recommended.
         sample_df = pd.concat([recommended_question, sample_df])
     
+    # 5. Shuffle the final exam questions.
     sample_df = sample_df.sample(frac=1).reset_index(drop=True)
 
+    # 6. Store the exam session details in session_state.
     st.session_state.question_ids = list(sample_df["record_id"])
     st.session_state.df = sample_df.reset_index(drop=True)
     total_questions = len(st.session_state.df)
     st.session_state.results = [None] * total_questions
     st.session_state.selected_answers = [None] * total_questions
     st.session_state.result_messages = ["" for _ in range(total_questions)]
-
+    
+    # Optionally, mark the sampled questions as used
+    mark_questions_as_used(sample_df["record_id"].tolist())
 
     
 def check_and_add_passcode(passcode):
