@@ -319,8 +319,10 @@ def save_exam_results():
       - student's answer (the letter)
       - correct answer text
       - a result flag ("Correct" or "Incorrect")
+      - a flag indicating if the question is clerkship recommended.
     It also saves the student's name, the passcode used, and the overall score.
     """
+    
     exam_data = []
     df = st.session_state.df  # This is the exam DataFrame for this session.
     # Iterate over each question in the exam.
@@ -343,6 +345,8 @@ def save_exam_results():
             record["result"] = "Correct"
         else:
             record["result"] = "Incorrect"
+
+        record["clerkship_recommended"] = bool(row.get("recommended_flag", False))
         
         exam_data.append(record)
     
