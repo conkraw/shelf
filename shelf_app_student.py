@@ -391,8 +391,10 @@ def get_pending_recommendation_for_user(user_name):
         return pending_data["record_id"]
     return None
 
-
-
+def has_pending_recommendation_for_user(user_name):
+    query = db.collection("pending_recommendations").where("user_name", "==", user_name).stream()
+    pending_recs = list(query)
+    return len(pending_recs) > 0
 
 def save_exam_results():
     """
