@@ -266,8 +266,12 @@ def load_data(pattern="*.csv"):
     dfs = [pd.read_csv(file) for file in csv_files]
     combined_df = pd.concat(dfs, ignore_index=True)
     if "record_id" not in combined_df.columns:
-        combined_df["record_id"] = combined_df.index + 1
+        combined_df["record_id"] = (combined_df.index + 1).astype(str)
+    else:
+        combined_df["record_id"] = combined_df["record_id"].astype(str)
     return combined_df
+
+
     
 def generate_review_doc(row, user_selected_letter, output_filename="review.docx"):
     doc = Document()
