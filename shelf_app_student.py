@@ -320,29 +320,25 @@ def send_email_with_attachment(to_emails, subject, body, attachment_path):
 
 def store_pending_recommendation_if_incorrect():
     """
-    Check the exam DataFrame for the clerkship recommended question.
-    If it was answered incorrectly, store it in a pending collection with a next_due timestamp 48 hours ahead.
+    Check the exam DataFrame for clerkship recommended questions.
+    If any of them were answered incorrectly, store each in a pending collection
+    with a next_due timestamp 48 hours ahead.
     """
     df = st.session_state.df
-    # Look for the clerkship recommended question by its flag.
     for idx, row in df.iterrows():
         if row.get("recommended_flag", False):
-            # Check if this question was answered incorrectly.
             if st.session_state.results[idx] != "correct":
                 due_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)
                 pending_data = {
                     "user_name": st.session_state.user_name,
                     "record_id": row["record_id"],
                     "next_due": due_time,
-                    "question_data": row.to_dict(),  # Optionally store more details
+                    "question_data": row.to_dict(),  # Optionally store more details.
                 }
-                # Save the pending recommendation
                 db.collection("pending_recommendations").add(pending_data)
-                st.write("Pending clerkship recommended question stored for re-administration in 48 hours.")
-            break  # assuming only one recommended question per exam
+                st.write(f"Pending clerkship recommended question stored for record {row['record_id']} for re-administration in 48 hours.")
+    # If you remove the 'break', all incorrect recommended questions will be stored.
 
-# Then, in your existing save_exam_results() function,
-# call the above function right before finishing the save:
 
 def get_pending_recommendation_for_user(user_name):
     """
