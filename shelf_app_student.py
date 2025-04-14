@@ -93,16 +93,18 @@ def load_exam_state():
 
 def create_new_exam(full_df):
     # ----------------------------------------------------------
-    # 1. First, check if there is a pending recommended question for this user.
+    # 1. Retrieve the pending recommended question (if any),
+    #    regardless of its due date.
     pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
     recommended_question = None
 
     if pending_rec_id is not None:
-        # Retrieve the recommended question from the original full_df (ignoring used filtering for now)
+        # Retrieve from the original full_df (before filtering used questions).
         pending_df = full_df[full_df["record_id"] == pending_rec_id]
         if not pending_df.empty:
             recommended_question = pending_df.iloc[[0]].copy()  # get as a DataFrame slice
             recommended_question["recommended_flag"] = True
+            # We'll remove it from full_df later.
     else:
         # Otherwise, use the normal process if a recommendation was set via Firebase.
         recommended_subject = st.session_state.get("recommended_subject")
@@ -115,8 +117,8 @@ def create_new_exam(full_df):
     # ----------------------------------------------------------
     # 2. Filter out questions that have been used in the last 7 days.
     used_ids = get_global_used_questions()
-    # If we have a recommended question, remove its record_id from the used_ids list,
-    # so that it isn’t filtered out.
+    # If we have a pending recommended question (from firebase),
+    # remove its record_id from the used_ids so it isn't filtered out.
     if recommended_question is not None:
         rec_id = recommended_question["record_id"].iloc[0] if isinstance(recommended_question["record_id"], pd.Series) else recommended_question["record_id"]
         if rec_id in used_ids:
@@ -124,10 +126,11 @@ def create_new_exam(full_df):
     full_df = full_df[~full_df["record_id"].isin(used_ids)]
     # ----------------------------------------------------------
     
-    # 3. If we found a recommended question earlier, remove it from full_df so it isn’t sampled twice.
+    # 3. Now remove the reserved recommended question from full_df if it exists,
+    #    so it won't be randomly sampled twice.
     if recommended_question is not None:
         full_df = full_df.drop(full_df[full_df["record_id"] == recommended_question["record_id"].iloc[0]].index)
-
+    
     # 4. Determine how many remaining questions to sample.
     remaining_n = 5 - 1 if recommended_question is not None else 5
 
@@ -136,7 +139,7 @@ def create_new_exam(full_df):
     else:
         sample_df = full_df.sample(n=remaining_n, replace=True)
 
-    # 5. If there is a recommended question, add it back into the sample.
+    # 5. Insert the recommended question into the sample if it exists.
     if recommended_question is not None:
         sample_df = sample_df.copy()
         sample_df["recommended_flag"] = False  # Mark these as not recommended.
@@ -145,7 +148,6 @@ def create_new_exam(full_df):
     # 6. Shuffle the final exam questions.
     sample_df = sample_df.sample(frac=1).reset_index(drop=True)
 
-    # 7. Store the exam session details in session_state.
     st.session_state.question_ids = list(sample_df["record_id"])
     st.session_state.df = sample_df.reset_index(drop=True)
     total_questions = len(st.session_state.df)
