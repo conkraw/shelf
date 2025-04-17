@@ -348,10 +348,8 @@ def store_pending_recommendation_if_incorrect():
     with a next_due timestamp 48 hours ahead.
     """
 
-    st.write("DEBUG: df shape:", df.shape)
-    st.write("DEBUG: df sample:", df.head())
-
-    df = st.session_state.df
+    df = st.session_state.get("df", None)
+    
     for idx, row in df.iterrows():
         if row.get("recommended_flag", False):
             if st.session_state.results[idx] != "correct":
