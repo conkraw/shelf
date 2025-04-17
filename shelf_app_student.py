@@ -401,7 +401,7 @@ def has_pending_recommendation_for_user(user_name):
     return len(pending_recs) > 0
 
 
-def get_pending_recommendation_for_user(user_name):
+def get_pending_recommendation_for_user(user_name, delete_after_fetch=True):
     now = datetime.datetime.now(datetime.timezone.utc)
     #st.write("DEBUG: Current UTC time:", now)
     
