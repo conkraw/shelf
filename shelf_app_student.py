@@ -464,7 +464,6 @@ def login_screen():
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
 
-        
         if passcode_input not in st.secrets["recipients"]:
             st.error("Invalid passcode. Please try again.")
             return
@@ -476,89 +475,78 @@ def login_screen():
         st.session_state.user_name = assigned_user
         st.session_state.authenticated = True
 
+        # Load the full dataset from CSVs.
+        full_df = load_data()  # Loads all CSV files.
+
         if "pending_rec_id" not in st.session_state:
             st.session_state.pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
 
         ######FIREBASE MUST BE WRITTEN AS A NUMBER... 19 = NUMBER, NOT STRING. 
-        try:
-            # Retrieve all documents from the "recommendations" collection.
-            rec_docs = db.collection("recommendations").stream()
-            
-            # Convert each document to a dictionary and include the document ID (which may serve as a username).
-            recs_list = []
-            for doc in rec_docs:
-                rec_data = doc.to_dict()
-                recs_list.append(rec_data)
-            
-            # Convert the list of recommendation dictionaries into a DataFrame.
-            recs_df = pd.DataFrame(recs_list)
-            
-            # Display the DataFrame for debugging purposes.
-            #st.write("Recommendations DataFrame:", recs_df)
-            #st.stop()
-            
-            # Filter the DataFrame for the current user (assuming case-insensitive match).
-            user_recs = recs_df[recs_df["user_name"].str.lower() == st.session_state.user_name.lower()]
-            if not user_recs.empty:
-                unique_subjects = user_recs["subject"].dropna().unique()
-                unique_subjects = list(unique_subjects)
-                chosen_subject = random.choice(unique_subjects)
-                st.session_state.recommended_subject = chosen_subject
-                st.write(f"Recommended subject: {chosen_subject}")
-            else:
-                st.session_state.recommended_subject = None
-                st.warning(f"No recommendation found for {st.session_state.user_name}.")
-        except Exception as e:
-            st.session_state.recommended_subject = None
-            st.warning("Error retrieving recommendations: " + str(e))
 
-        # Load the full dataset from CSVs.
-        full_df = load_data()  # Loads all CSV files.
-        
-        # Optionally filter by subject based on designation in the passcode.
-        subject_mapping = {
-            "aaa": "Respiratory",
-            "aab": "School-Based",
-            # add more mappings as needed...
-        }
-        if "_" in passcode_input:
-            designation = passcode_input.split("_")[-1]  # get part after underscore
-            if designation in subject_mapping:
-                subject_filter = subject_mapping[designation]
-                filtered_df = full_df[full_df["subject"] == subject_filter]
-                if not filtered_df.empty:
-                    full_df = filtered_df
-                else:
-                    st.warning(f"No questions found for subject {subject_filter}. Using full dataset instead.")
+        # 🔍 Step 2: Check for pending rec and star it
+        if "pending_rec_id" not in st.session_state:
+            st.session_state.pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
 
-        if "pending_rec_id" in st.session_state and st.session_state.pending_rec_id:
-            df = full_df  # or sample_df if you've already filtered
+        if st.session_state.pending_rec_id:
             rec_id = st.session_state.pending_rec_id
-            if "recommended_flag" not in df.columns:
-                df["recommended_flag"] = False
-            df.loc[df["record_id"] == rec_id, "recommended_flag"] = True
-            st.session_state.df = df
+            if "recommended_flag" not in full_df.columns:
+                full_df["recommended_flag"] = False
+            full_df.loc[full_df["record_id"] == rec_id, "recommended_flag"] = True
+            full_df = full_df[full_df["record_id"] == rec_id]  # Filter down to only the pending question
+            st.session_state.df = full_df
+            st.session_state.question_ids = [rec_id]
+        else:
+            # 🔁 Step 3: If no pending, use subject mapping
+            subject_mapping = {
+                "aaa": "Respiratory",
+                "aab": "School-Based",
+            }
+            if "_" in passcode_input:
+                designation = passcode_input.split("_")[-1]
+                if designation in subject_mapping:
+                    subject_filter = subject_mapping[designation]
+                    filtered_df = full_df[full_df["subject"] == subject_filter]
+                    if not filtered_df.empty:
+                        full_df = filtered_df
+                    else:
+                        st.warning(f"No questions found for subject {subject_filter}. Using full dataset instead.")
 
-        
-        # Check for a saved exam session.
+            # Try optional recommendation matching
+            try:
+                rec_docs = db.collection("recommendations").stream()
+                recs_df = pd.DataFrame([doc.to_dict() for doc in rec_docs])
+                if "user_name" in recs_df.columns:
+                    user_recs = recs_df[recs_df["user_name"].str.lower() == st.session_state.user_name.lower()]
+                    if not user_recs.empty:
+                        unique_subjects = user_recs["subject"].dropna().unique().tolist()
+                        chosen_subject = random.choice(unique_subjects)
+                        st.session_state.recommended_subject = chosen_subject
+                        full_df = full_df[full_df["subject"] == chosen_subject]
+                        st.write(f"Recommended subject: {chosen_subject}")
+                    else:
+                        st.warning("No recommendations found for this user.")
+                else:
+                    st.warning("No 'user_name' field in recommendations collection.")
+            except Exception as e:
+                st.warning("Error retrieving recommendations: " + str(e))
+
+            st.session_state.df = full_df
+
+        # ✅ Step 4: Resume or create exam session
         user_key = str(st.session_state.assigned_passcode)
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
 
         if doc.exists:
             data = doc.to_dict()
-            # Check if the saved session is complete.
             if data.get("exam_complete", False):
-                # Exam was complete; now check if the lock period is still active.
                 if is_passcode_locked(passcode_input, lock_hours=6):
                     st.error("This passcode is locked. Please try again later.")
                     return
                 else:
-                    # Lock period has expired—delete the old session and create a new exam.
                     doc_ref.delete()
                     create_new_exam(full_df)
             else:
-                # Resume the incomplete exam session.
                 st.session_state.question_index = data.get("question_index", 0)
                 st.session_state.score = data.get("score", 0)
                 st.session_state.results = data.get("results", [])
@@ -573,9 +561,8 @@ def login_screen():
                 else:
                     st.session_state.df = full_df
         else:
-            # No saved session exists: create a new exam.
             create_new_exam(full_df)
-        
+
         st.rerun()
 
 ### Exam Screen
