@@ -454,11 +454,24 @@ def login_screen():
             st.error("Invalid passcode. Please try again.")
             return
 
-        # Save the login details in session state.
-        assigned_user = st.secrets["recipients"][passcode_input]
+        assigned_value = st.secrets["recipients"][passcode_input]
+
+        # Parse value: email|rotation_start
+        try:
+            email, start_date_str = assigned_value.split("|")
+            rotation_start = datetime.datetime.strptime(start_date_str.strip(), "%Y-%m-%d")
+            expiration_date = rotation_start + datetime.timedelta(days=25)
+            if datetime.datetime.today() > expiration_date:
+                st.error("This passcode has expired. Access is no longer allowed.")
+                return
+        except Exception as e:
+            st.error(f"Error parsing passcode settings: {e}")
+            return
+        
+        # If still valid, assign to session state
         st.session_state.assigned_passcode = passcode_input
-        st.session_state.recipient_email = assigned_user
-        st.session_state.user_name = assigned_user
+        st.session_state.recipient_email = email
+        st.session_state.user_name = email
         st.session_state.authenticated = True
 
         if "pending_rec_id" not in st.session_state:
