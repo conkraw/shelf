@@ -544,7 +544,7 @@ def login_screen():
                 else:
                     # Lock period has expired—delete the old session and create a new exam.
                     doc_ref.delete()
-                    create_new_exam()
+                    create_new_exam(full_df)
             else:
                 # Resume the incomplete exam session.
                 st.session_state.question_index = data.get("question_index", 0)
@@ -562,7 +562,7 @@ def login_screen():
                     st.session_state.df = full_df
         else:
             # No saved session exists: create a new exam.
-            create_new_exam()
+            create_new_exam(full_df)
         
         st.rerun()
 
