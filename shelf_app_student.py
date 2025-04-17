@@ -472,6 +472,17 @@ def save_exam_results():
     st.success("Thank you for your participation!")
 
     store_pending_recommendation_if_incorrect()
+
+    if "active_pending_rec_id" in st.session_state:
+        doc_ref = db.collection("pending_recommendations") \
+                    .where("user_name", "==", st.session_state.user_name) \
+                    .where("record_id", "==", st.session_state.active_pending_rec_id) \
+                    .stream()
+
+        for doc in doc_ref:
+            doc.reference.delete()
+            st.write(f"✅ Pending recommendation {st.session_state.active_pending_rec_id} cleared.")
+
     
 ### Login Screen
 
