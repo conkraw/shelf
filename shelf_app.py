@@ -147,6 +147,9 @@ def lock_passcode(passcode):
     doc_ref.set({"lock_time": firestore.SERVER_TIMESTAMP})
 
 
+import datetime
+from dateutil import tz
+
 def get_or_set_passcode_start(passcode):
     ref = db.collection("passcode_starts").document(passcode)
     doc = ref.get()
@@ -157,12 +160,12 @@ def get_or_set_passcode_start(passcode):
         return datetime.datetime.now(datetime.timezone.utc)
 
 def passcode_expires_at(start):
-    # Find that week’s Friday at 23:59:59 UTC
+    # Find Friday of that week at 23:59:59 UTC
     wd = start.weekday()  # Mon=0…Sun=6
     days_to_fri = (4 - wd) if wd <= 4 else (4 + 7 - wd)
     fri = (start + datetime.timedelta(days=days_to_fri)).date()
     return datetime.datetime(fri.year, fri.month, fri.day,
-                             23,59,59, tzinfo=datetime.timezone.utc)
+                             23, 59, 59, tzinfo=datetime.timezone.utc)
 
 def is_passcode_expired(passcode):
     start  = get_or_set_passcode_start(passcode)
@@ -370,6 +373,10 @@ def login_screen():
             return
         if not user_name:
             st.error("Please enter your name to proceed.")
+            return
+
+        if is_passcode_expired(passcode_input):
+            st.error("This passcode has expired for the week. Contact your instructor.")
             return
 
         # Save the login details in session state.
