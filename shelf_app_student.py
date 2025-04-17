@@ -92,62 +92,68 @@ def load_exam_state():
         st.session_state.email_sent = data.get("email_sent", False)
 
 def create_new_exam(full_df):
-    recommended_question = None
-
-    # 1. Try to retrieve a pending recommended question (and don't delete yet)
-    pending_rec_id = get_pending_recommendation_for_user(
-        st.session_state.user_name, delete_after_fetch=True
-    )
-
-    if pending_rec_id is not None:
-        st.session_state.active_pending_rec_id = pending_rec_id
-        pending_df = full_df[full_df["record_id"] == pending_rec_id]
-        if not pending_df.empty:
-            recommended_question = pending_df.iloc[[0]].copy()
-            recommended_question["recommended_flag"] = True
+    # ----------------------------------------------------------
+    # 1. First, check if the user has ANY pending recommendation.
+    if has_pending_recommendation_for_user(st.session_state.user_name):
+        # Do not use any recommended question from pending or fallback logic.
+        recommended_question = None
     else:
-        # 2. Fallback to subject-based recommendation
-        recommended_subject = st.session_state.get("recommended_subject")
-        if recommended_subject is not None:
-            rec_df = full_df[full_df["subject"] == recommended_subject]
-            if not rec_df.empty:
-                recommended_question = rec_df.sample(n=1, replace=False).copy()
+        # Otherwise, try to retrieve a pending recommended question if it is due.
+        pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
+        recommended_question = None
+        if pending_rec_id is not None:
+            # Retrieve from the original full_df (before filtering used questions).
+            pending_df = full_df[full_df["record_id"] == pending_rec_id]
+            if not pending_df.empty:
+                recommended_question = pending_df.iloc[[0]].copy()
                 recommended_question["recommended_flag"] = True
-
-    # 3. Filter out globally used questions, EXCEPT the recommended one
+        else:
+            # Otherwise, use the normal process if a recommendation was set via Firebase.
+            recommended_subject = st.session_state.get("recommended_subject")
+            if recommended_subject is not None:
+                rec_df = full_df[full_df["subject"] == recommended_subject]
+                if not rec_df.empty:
+                    recommended_question = rec_df.sample(n=1, replace=False).copy()
+                    recommended_question["recommended_flag"] = True
+    # ----------------------------------------------------------
+    # 2. Now filter out questions that have been used in the last 7 days.
     used_ids = get_global_used_questions()
     if recommended_question is not None:
-        rec_id = recommended_question["record_id"].iloc[0]
+        rec_id = (recommended_question["record_id"].iloc[0]
+                  if isinstance(recommended_question["record_id"], pd.Series)
+                  else recommended_question["record_id"])
         if rec_id in used_ids:
             used_ids.remove(rec_id)
     full_df = full_df[~full_df["record_id"].isin(used_ids)]
-
-    # 4. Remove the recommended one from sampling pool to avoid duplication
+    # ----------------------------------------------------------
+    
+    # 3. Remove the reserved recommended question from full_df if it exists.
     if recommended_question is not None:
-        full_df = full_df[full_df["record_id"] != recommended_question["record_id"].iloc[0]]
-
-    # 5. Sample the rest
+        full_df = full_df.drop(full_df[full_df["record_id"] == recommended_question["record_id"].iloc[0]].index)
+    
+    # 4. Determine how many remaining questions to sample.
     remaining_n = 5 - 1 if recommended_question is not None else 5
     if len(full_df) >= remaining_n:
         sample_df = full_df.sample(n=remaining_n, replace=False)
     else:
         sample_df = full_df.sample(n=remaining_n, replace=True)
-
-    # 6. Add recommended question back
+    
+    # 5. If there is a recommended question, insert it into the sample.
     if recommended_question is not None:
-        sample_df["recommended_flag"] = False  # only the injected one is starred
+        sample_df = sample_df.copy()
+        sample_df["recommended_flag"] = False  # Mark these as not recommended.
         sample_df = pd.concat([recommended_question, sample_df])
-
-    # 7. Final shuffle + setup
+    
     sample_df = sample_df.sample(frac=1).reset_index(drop=True)
-    st.session_state.df = sample_df
-    st.session_state.question_ids = sample_df["record_id"].tolist()
-    st.session_state.results = [None] * len(sample_df)
-    st.session_state.selected_answers = [None] * len(sample_df)
-    st.session_state.result_messages = ["" for _ in range(len(sample_df))]
-
+    
+    st.session_state.question_ids = list(sample_df["record_id"])
+    st.session_state.df = sample_df.reset_index(drop=True)
+    total_questions = len(st.session_state.df)
+    st.session_state.results = [None] * total_questions
+    st.session_state.selected_answers = [None] * total_questions
+    st.session_state.result_messages = ["" for _ in range(total_questions)]
+    
     mark_questions_as_used(sample_df["record_id"].tolist())
-
 
     
 def check_and_add_passcode(passcode):
@@ -310,37 +316,6 @@ def generate_review_doc(row, user_selected_letter, output_filename="review.docx"
     doc.save(output_filename)
     return output_filename
 
-
-def inject_pending_question(full_df):
-    pending_id = st.session_state.get("pending_rec_id")
-
-    if not pending_id:
-        return full_df
-
-    # Remove from used list to ensure it can appear
-    used_ids = get_global_used_questions()
-    if pending_id in used_ids:
-        used_ids.remove(pending_id)
-    full_df = full_df[~full_df["record_id"].isin(used_ids)]
-
-    # Prevent duplicate injection
-    if pending_id in full_df["record_id"].values:
-        # Optionally, mark it recommended
-        full_df.loc[full_df["record_id"] == pending_id, "recommended_flag"] = True
-        return full_df
-
-    # Else, inject from source
-    pending_row = load_data()
-    pending_row = pending_row[pending_row["record_id"] == pending_id]
-    if not pending_row.empty:
-        pending_row["recommended_flag"] = True
-        full_df = pd.concat([pending_row, full_df], ignore_index=True)
-
-    return full_df
-
-
-
-
 def send_email_with_attachment(to_emails, subject, body, attachment_path):
     from_email = st.secrets["general"]["email"]
     password = st.secrets["general"]["email_password"]
@@ -367,53 +342,27 @@ def send_email_with_attachment(to_emails, subject, body, attachment_path):
         st.error(f"Error sending email: {e}")
 
 def store_pending_recommendation_if_incorrect():
+    """
+    Check the exam DataFrame for clerkship recommended questions.
+    If any of them were answered incorrectly, store each in a pending collection
+    with a next_due timestamp 48 hours ahead.
+    """
     df = st.session_state.df
-    incorrect_indices = [idx for idx, result in enumerate(st.session_state.results) if result != "correct"]
-
-    if not incorrect_indices:
-        st.info("✅ All answers correct. No pending recommendation needed.")
-        return
-
-    # Pick one incorrect question at random
-    idx = random.choice(incorrect_indices)
-    row = df.iloc[idx]
-
-    # Check if it's already pending
-    record_id = row["record_id"]
-    user_name = st.session_state.user_name
-
-    existing = db.collection("pending_recommendations") \
-                 .where("user_name", "==", user_name) \
-                 .where("record_id", "==", record_id) \
-                 .stream()
-
-    if any(True for _ in existing):
-        st.write(f"⚠️ Already pending: {record_id}")
-        return
-
-    # Store it with a 48-hour re-review delay
-    due_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)
-    pending_data = {
-        "user_name": user_name,
-        "record_id": record_id,
-        "next_due": due_time,
-    }
-
-    try:
-        db.collection("pending_recommendations").add(pending_data)
-        st.write(f"✅ Stored one random incorrect answer: {record_id}")
-    except Exception as e:
-        st.error(f"❌ Failed to store: {e}")
+    for idx, row in df.iterrows():
+        if row.get("recommended_flag", False):
+            if st.session_state.results[idx] != "correct":
+                due_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)
+                pending_data = {
+                    "user_name": st.session_state.user_name,
+                    "record_id": row["record_id"],
+                    "next_due": due_time,
+                }
+                db.collection("pending_recommendations").add(pending_data)
+                st.write(f"Pending clerkship recommended question stored for record {row['record_id']} for re-administration in 48 hours.")
+    # If you remove the 'break', all incorrect recommended questions will be stored.
 
 
-
-def has_pending_recommendation_for_user(user_name):
-    query = db.collection("pending_recommendations").where("user_name", "==", user_name).stream()
-    pending_recs = list(query)
-    return len(pending_recs) > 0
-
-
-def get_pending_recommendation_for_user(user_name, delete_after_fetch=True):
+def get_pending_recommendation_for_user(user_name):
     now = datetime.datetime.now(datetime.timezone.utc)
     #st.write("DEBUG: Current UTC time:", now)
     
@@ -438,11 +387,14 @@ def get_pending_recommendation_for_user(user_name, delete_after_fetch=True):
         pending_data = pending_doc.to_dict()
         #st.write("DEBUG: Using pending recommendation:", pending_data)
         # Delete the pending recommendation after retrieving it.
-        if delete_after_fetch:
-            pending_doc.reference.delete()
+        pending_doc.reference.delete()
         return pending_data["record_id"]
     return None
 
+def has_pending_recommendation_for_user(user_name):
+    query = db.collection("pending_recommendations").where("user_name", "==", user_name).stream()
+    pending_recs = list(query)
+    return len(pending_recs) > 0
 
 def save_exam_results():
     """
@@ -485,21 +437,7 @@ def save_exam_results():
     db.collection("exam_results").add(exam_summary)
     st.success("Thank you for your participation!")
 
-        # ✅ Remove active pending rec first (if shown in this exam)
-    if "active_pending_rec_id" in st.session_state:
-        doc_ref = db.collection("pending_recommendations") \
-                    .where("user_name", "==", st.session_state.user_name) \
-                    .where("record_id", "==", st.session_state.active_pending_rec_id) \
-                    .stream()
-    
-        for doc in doc_ref:
-            doc.reference.delete()
-            st.write(f"✅ Pending recommendation {st.session_state.active_pending_rec_id} cleared.")
-    
-    # ✅ Now store any newly missed recommended questions
     store_pending_recommendation_if_incorrect()
-
-
     
 ### Login Screen
 
@@ -593,8 +531,7 @@ def login_screen():
                 else:
                     # Lock period has expired—delete the old session and create a new exam.
                     doc_ref.delete()
-                    create_new_exam(inject_pending_question(full_df))
-
+                    create_new_exam(full_df)
             else:
                 # Resume the incomplete exam session.
                 st.session_state.question_index = data.get("question_index", 0)
@@ -612,8 +549,7 @@ def login_screen():
                     st.session_state.df = full_df
         else:
             # No saved session exists: create a new exam.
-            create_new_exam(inject_pending_question(full_df))
-
+            create_new_exam(full_df)
         
         st.rerun()
 
@@ -806,4 +742,3 @@ def main():
         
 if __name__ == "__main__":
     main()
-
