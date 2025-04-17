@@ -320,6 +320,12 @@ def generate_review_doc(row, user_selected_letter, output_filename="review.docx"
 def inject_pending_question(full_df):
     if "pending_rec_id" in st.session_state and st.session_state.pending_rec_id:
         pending_id = st.session_state.pending_rec_id
+
+        # Check if it's already in session_state.question_ids (exam in progress or recently completed)
+        if "question_ids" in st.session_state and pending_id in st.session_state.question_ids:
+            st.write(f"Skipping injection of {pending_id} — already in exam.")
+            return full_df
+
         if pending_id not in full_df["record_id"].values:
             pending_row = load_data()
             pending_row = pending_row[pending_row["record_id"] == pending_id]
@@ -328,6 +334,7 @@ def inject_pending_question(full_df):
                 full_df = pd.concat([pending_row, full_df], ignore_index=True)
 
     return full_df
+
 
 def send_email_with_attachment(to_emails, subject, body, attachment_path):
     from_email = st.secrets["general"]["email"]
