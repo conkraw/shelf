@@ -366,7 +366,7 @@ def store_pending_recommendation_if_incorrect():
 
 def get_pending_recommendation_for_user(user_name):
     now = datetime.datetime.now(datetime.timezone.utc)
-    #st.write("DEBUG: Current UTC time:", now)
+    st.write("DEBUG: Current UTC time:", now)
     
     # Query documents for this user with next_due <= now.
     query = db.collection("pending_recommendations") \
@@ -375,12 +375,12 @@ def get_pending_recommendation_for_user(user_name):
               .stream()
     
     pending_recs = list(query)
-    #st.write("DEBUG: Found", len(pending_recs), "pending recommendations for user", user_name)
+    st.write("DEBUG: Found", len(pending_recs), "pending recommendations for user", user_name)
     
     # Log each document's next_due for inspection.
     for doc in pending_recs:
         data = doc.to_dict()
-        #st.write("DEBUG: Doc ID", doc.id, "next_due:", data.get("next_due"))
+        st.write("DEBUG: Doc ID", doc.id, "next_due:", data.get("next_due"))
     
     if pending_recs:
         # Sort by the next_due field (ascending) so that the earliest one is used.
@@ -391,6 +391,8 @@ def get_pending_recommendation_for_user(user_name):
         # Delete the pending recommendation after retrieving it.
         pending_doc.reference.delete()
         return pending_data["record_id"]
+
+    st.stop()
     return None
 
 def has_pending_recommendation_for_user(user_name):
