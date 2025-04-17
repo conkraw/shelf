@@ -5,7 +5,7 @@ import glob
 import random
 import datetime
 import re
-from datetime, import datetime, timedelta
+from datetime import datetime, timedelta
 
 from docx import Document
 from docx.shared import Inches
