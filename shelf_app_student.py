@@ -439,7 +439,7 @@ def save_exam_results():
     db.collection("exam_results").add(exam_summary)
     st.success("Thank you for your participation!")
 
-    st.dataframe(exam_data)
+    st.dataframe(record)
 
     for idx, row in df.iterrows():
         if row.get("recommended_flag", False):
