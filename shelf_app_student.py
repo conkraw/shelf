@@ -5,7 +5,6 @@ import glob
 import random
 import datetime
 import re
-from datetime import datetime, timedelta
 
 from docx import Document
 from docx.shared import Inches
@@ -459,9 +458,9 @@ def login_screen():
         # Parse value: email|rotation_start
         try:
             email, start_date_str = assigned_value.split("|")
-            rotation_start = datetime.datetime.strptime(start_date_str.strip(), "%Y-%m-%d")
+            rotation_start = datetime.strptime(start_date_str.strip(), "%Y-%m-%d")
             expiration_date = rotation_start + datetime.timedelta(days=25)
-            if datetime.datetime.today() > expiration_date:
+            if datetime.today() > expiration_date:
                 st.error("This passcode has expired. Access is no longer allowed.")
                 return
         except Exception as e:
