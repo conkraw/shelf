@@ -347,6 +347,10 @@ def store_pending_recommendation_if_incorrect():
     If any of them were answered incorrectly, store each in a pending collection
     with a next_due timestamp 48 hours ahead.
     """
+
+    st.write("DEBUG: df shape:", df.shape)
+    st.write("DEBUG: df sample:", df.head())
+
     df = st.session_state.df
     for idx, row in df.iterrows():
         if row.get("recommended_flag", False):
