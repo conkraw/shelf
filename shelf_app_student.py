@@ -385,16 +385,32 @@ def store_pending_recommendation_if_incorrect():
         st.write(f"Q{idx}: recommended={is_recommended}, result={st.session_state.results[idx]}")
 
         if is_recommended and was_incorrect:
+            record_id = row["record_id"]
+            user_name = st.session_state.user_name
+
+            # ✅ Check if this is already pending
+            existing = db.collection("pending_recommendations") \
+                         .where("user_name", "==", user_name) \
+                         .where("record_id", "==", record_id) \
+                         .stream()
+
+            already_pending = any(True for _ in existing)
+
+            if already_pending:
+                st.write(f"⚠️ Already pending: {record_id}")
+                continue  # Skip storing again
+
+            # ✅ Not already pending — create it
             due_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)
             pending_data = {
-                "user_name": st.session_state.user_name,
-                "record_id": row["record_id"],
+                "user_name": user_name,
+                "record_id": record_id,
                 "next_due": due_time,
             }
 
             try:
                 db.collection("pending_recommendations").add(pending_data)
-                st.write(f"✅ Stored again for: {row['record_id']}")
+                st.write(f"✅ Stored again for: {record_id}")
                 stored += 1
             except Exception as e:
                 st.error(f"❌ Failed to store: {e}")
