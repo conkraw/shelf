@@ -146,6 +146,61 @@ def lock_passcode(passcode):
     # Set the lock time to the server timestamp.
     doc_ref.set({"lock_time": firestore.SERVER_TIMESTAMP})
 
+
+import datetime
+from dateutil.relativedelta import relativedelta
+from dateutil import tz
+
+def get_or_set_passcode_start(passcode: str) -> datetime.datetime:
+    """
+    Fetches the start_time for this passcode from Firestore, or sets it
+    to now (server time) if it doesn't exist yet. Returns a timezone-aware datetime.
+    """
+    ref = db.collection("passcode_starts").document(passcode)
+    doc = ref.get()
+    if doc.exists:
+        data = doc.to_dict()
+        start = data.get("start_time")
+        # Firestore returns a timezone-aware datetime
+        return start
+    else:
+        # First use: record server timestamp
+        ref.set({"start_time": firestore.SERVER_TIMESTAMP})
+        # We have to approximate by using UTC now locally until Firestore syncs
+        return datetime.datetime.now(datetime.timezone.utc)
+
+def passcode_expires_at(start: datetime.datetime) -> datetime.datetime:
+    """
+    Given a start datetime, compute the Friday of that week at 23:59:59 local time (UTC).
+    Weeks are Mon=0…Sun=6; Friday=4.
+    """
+    # Ensure tz-aware in UTC
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=datetime.timezone.utc)
+    weekday = start.weekday()  # Mon=0 … Sun=6
+    # days until Friday:
+    if weekday <= 4:
+        days_to_friday = 4 - weekday
+    else:
+        days_to_friday = 4 + 7 - weekday
+    friday = (start + datetime.timedelta(days=days_to_friday)).date()
+    # expiry at that Friday 23:59:59 UTC
+    return datetime.datetime(
+        year=friday.year, month=friday.month, day=friday.day,
+        hour=23, minute=59, second=59, tzinfo=datetime.timezone.utc
+    )
+
+def is_passcode_expired(passcode: str) -> bool:
+    """
+    Returns True if current UTC time is past the Friday‑23:59:59 expiry
+    of the week in which this passcode was first used.
+    """
+    start = get_or_set_passcode_start(passcode)
+    expiry = passcode_expires_at(start)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    return now > expiry
+
+
 def get_image_path(record_id, folder="images"):
     extensions = ["jpg", "jpeg", "png", "gif"]
     for ext in extensions:
