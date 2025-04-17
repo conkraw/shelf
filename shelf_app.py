@@ -154,40 +154,38 @@ def get_or_set_passcode_start(passcode):
     ref = db.collection("passcode_starts").document(passcode)
     doc = ref.get()
     if doc.exists:
-        return doc.to_dict()["start_time"]
+        # This is already a Python datetime (naïve or TZ‑aware).
+        start = doc.to_dict()["start_time"]
     else:
         ref.set({"start_time": firestore.SERVER_TIMESTAMP})
-        return datetime.datetime.now(datetime.timezone.utc)
+        start = datetime.datetime.now()
+    # Return a **naïve** datetime for simplicity
+    return start if isinstance(start, datetime.datetime) else start.to_datetime()
 
-def passcode_expires_atxxx(start):
-    # Find Friday of that week at 23:59:59 UTC
-    wd = start.weekday()  # Mon=0…Sun=6
-    days_to_fri = (4 - wd) if wd <= 4 else (4 + 7 - wd)
-    fri = (start + datetime.timedelta(days=days_to_fri)).date()
-    return datetime.datetime(fri.year, fri.month, fri.day,
-                             23, 59, 59, tzinfo=datetime.timezone.utc)
-
-
-def passcode_expires_at(start):
-    # Ensure start is in UTC (important if it was saved in local time)
-    if start.tzinfo is None:
-        start = start.replace(tzinfo=datetime.timezone.utc)
+def passcode_expires_at(start: datetime.datetime) -> datetime.datetime:
+    """
+    For testing: expires on the *same* week‑Wednesday at 21:15,
+    based on the date of `start`.  Returns a naïve datetime.
+    """
+    # Work off the date only:
+    base_date = start.date()
+    wd = base_date.weekday()  # Mon=0 … Sun=6
+    # How many days to the next Wednesday (2)?
+    if wd <= 2:
+        days_to_wed = 2 - wd
     else:
-        start = start.astimezone(datetime.timezone.utc)
-
-    # Set to Wednesday at 9:15 PM UTC
-    wd = start.weekday()  # Monday = 0
-    days_to_wed = (2 - wd) if wd <= 2 else (2 + 7 - wd)
-    wed = (start + datetime.timedelta(days=days_to_wed)).date()
-    return datetime.datetime(wed.year, wed.month, wed.day,
-                             21, 15, 0, tzinfo=datetime.timezone.utc)
+        days_to_wed = 2 + 7 - wd
+    wed_date = base_date + datetime.timedelta(days=days_to_wed)
+    # Build a naïve datetime at 21:15 that day:
+    return datetime.datetime.combine(wed_date, datetime.time(21, 15))
 
     
-def is_passcode_expired(passcode):
+def is_passcode_expired(passcode: str) -> bool:
     start  = get_or_set_passcode_start(passcode)
     expiry = passcode_expires_at(start)
-    return datetime.datetime.now(datetime.timezone.utc) > expiry
-
+    now    = datetime.datetime.now()   # naïve
+    return now > expiry
+    
 def get_image_path(record_id, folder="images"):
     extensions = ["jpg", "jpeg", "png", "gif"]
     for ext in extensions:
