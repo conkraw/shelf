@@ -350,8 +350,16 @@ def store_pending_recommendation_if_incorrect():
     with a next_due timestamp 48 hours ahead.
     """
     df = st.session_state.df
+
+    if "recommended_flag" not in df.columns:
+        st.warning("No 'recommended_flag' column found in DataFrame.")
+        return
+
     for idx, row in df.iterrows():
         if row.get("recommended_flag", False):
+            if idx >= len(st.session_state.results):
+                st.warning(f"Index {idx} out of bounds for results list.")
+                continue
             if st.session_state.results[idx] != "correct":
                 due_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)
                 pending_data = {
@@ -359,9 +367,12 @@ def store_pending_recommendation_if_incorrect():
                     "record_id": row["record_id"],
                     "next_due": due_time,
                 }
-                db.collection("pending_recommendations").add(pending_data)
-                st.write(f"Pending clerkship recommended question stored for record {row['record_id']} for re-administration in 48 hours.")
-    # If you remove the 'break', all incorrect recommended questions will be stored.
+                try:
+                    db.collection("pending_recommendations").add(pending_data)
+                    st.write(f"✅ Pending question stored: {row['record_id']}")
+                except Exception as e:
+                    st.error(f"❌ Firestore error: {e}")
+
 
 
 def get_pending_recommendation_for_user(user_name):
