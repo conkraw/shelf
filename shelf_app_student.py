@@ -91,7 +91,7 @@ def load_exam_state():
         st.session_state.question_ids = data.get("question_ids", st.session_state.question_ids)
         st.session_state.email_sent = data.get("email_sent", False)
 
-def create_new_exam():
+def create_new_exam(full_df):
     # ----------------------------------------------------------
     # 1. First, check if the user has ANY pending recommendation.
     if has_pending_recommendation_for_user(st.session_state.user_name):
