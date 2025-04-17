@@ -318,23 +318,32 @@ def generate_review_doc(row, user_selected_letter, output_filename="review.docx"
 
 
 def inject_pending_question(full_df):
-    if "pending_rec_id" in st.session_state and st.session_state.pending_rec_id:
-        pending_id = st.session_state.pending_rec_id
+    pending_id = st.session_state.get("pending_rec_id")
 
-        # Remove from global used list manually
-        used_ids = get_global_used_questions()
-        if pending_id in used_ids:
-            used_ids.remove(pending_id)
-        full_df = full_df[~full_df["record_id"].isin(used_ids)]
+    if not pending_id:
+        return full_df
 
-        if pending_id not in full_df["record_id"].values:
-            pending_row = load_data()
-            pending_row = pending_row[pending_row["record_id"] == pending_id]
-            if not pending_row.empty:
-                pending_row["recommended_flag"] = True
-                full_df = pd.concat([pending_row, full_df], ignore_index=True)
+    # Remove from used list to ensure it can appear
+    used_ids = get_global_used_questions()
+    if pending_id in used_ids:
+        used_ids.remove(pending_id)
+    full_df = full_df[~full_df["record_id"].isin(used_ids)]
+
+    # Prevent duplicate injection
+    if pending_id in full_df["record_id"].values:
+        # Optionally, mark it recommended
+        full_df.loc[full_df["record_id"] == pending_id, "recommended_flag"] = True
+        return full_df
+
+    # Else, inject from source
+    pending_row = load_data()
+    pending_row = pending_row[pending_row["record_id"] == pending_id]
+    if not pending_row.empty:
+        pending_row["recommended_flag"] = True
+        full_df = pd.concat([pending_row, full_df], ignore_index=True)
 
     return full_df
+
 
 
 
