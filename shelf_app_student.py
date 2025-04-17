@@ -439,6 +439,7 @@ def save_exam_results():
     db.collection("exam_results").add(exam_summary)
     st.success("Thank you for your participation!")
 
+    st.dataframe(df)
     store_pending_recommendation_if_incorrect()
     
 ### Login Screen
