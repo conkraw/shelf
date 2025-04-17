@@ -99,9 +99,11 @@ def create_new_exam(full_df):
         recommended_question = None
     else:
         # Otherwise, try to retrieve a pending recommended question if it is due.
-        pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
+        pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name, delete_after_fetch=False)
+
         recommended_question = None
         if pending_rec_id is not None:
+            st.session_state.active_pending_rec_id = pending_rec_id
             # Retrieve from the original full_df (before filtering used questions).
             pending_df = full_df[full_df["record_id"] == pending_rec_id]
             if not pending_df.empty:
