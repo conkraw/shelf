@@ -18,8 +18,6 @@ from email import encoders
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-from datetime import timezone
-
 # Set wide layout
 st.set_page_config(layout="wide")
 
@@ -349,17 +347,9 @@ def store_pending_recommendation_if_incorrect():
     If any of them were answered incorrectly, store each in a pending collection
     with a next_due timestamp 48 hours ahead.
     """
-    if "user_name" not in st.session_state or not st.session_state.user_name:
-        st.warning("User not authenticated. Skipping pending recommendation check.")
-        return
-
     df = st.session_state.df
-
     for idx, row in df.iterrows():
         if row.get("recommended_flag", False):
-            if idx >= len(st.session_state.results):
-                st.warning(f"Index {idx} out of bounds for results.")
-                continue
             if st.session_state.results[idx] != "correct":
                 due_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)
                 pending_data = {
@@ -367,12 +357,9 @@ def store_pending_recommendation_if_incorrect():
                     "record_id": row["record_id"],
                     "next_due": due_time,
                 }
-                try:
-                    db.collection("pending_recommendations").add(pending_data)
-                    st.write(f"✅ Pending question stored: {row['record_id']}")
-                except Exception as e:
-                    st.error(f"❌ Firestore error: {e}")
-
+                db.collection("pending_recommendations").add(pending_data)
+                st.write(f"Pending clerkship recommended question stored for record {row['record_id']} for re-administration in 48 hours.")
+    # If you remove the 'break', all incorrect recommended questions will be stored.
 
 
 def get_pending_recommendation_for_user(user_name):
@@ -466,24 +453,11 @@ def login_screen():
             st.error("Invalid passcode. Please try again.")
             return
 
-        assigned_value = st.secrets["recipients"][passcode_input]
-
-        # Parse value: email|rotation_start
-        try:
-            email, start_date_str = assigned_value.split("|")
-            rotation_start = datetime.datetime.strptime(start_date_str.strip(), "%Y-%m-%d")
-            expiration_date = rotation_start + datetime.timedelta(days=25)
-            if datetime.datetime.today() > expiration_date:
-                st.error("This passcode has expired. Access is no longer allowed.")
-                return
-        except Exception as e:
-            st.error(f"Error parsing passcode settings: {e}")
-            return
-        
-        # If still valid, assign to session state
+        # Save the login details in session state.
+        assigned_user = st.secrets["recipients"][passcode_input]
         st.session_state.assigned_passcode = passcode_input
-        st.session_state.recipient_email = email
-        st.session_state.user_name = email
+        st.session_state.recipient_email = assigned_user
+        st.session_state.user_name = assigned_user
         st.session_state.authenticated = True
 
         if "pending_rec_id" not in st.session_state:
