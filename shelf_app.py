@@ -159,7 +159,7 @@ def get_or_set_passcode_start(passcode):
         ref.set({"start_time": firestore.SERVER_TIMESTAMP})
         return datetime.datetime.now(datetime.timezone.utc)
 
-def passcode_expires_at(start):
+def passcode_expires_atxxx(start):
     # Find Friday of that week at 23:59:59 UTC
     wd = start.weekday()  # Mon=0…Sun=6
     days_to_fri = (4 - wd) if wd <= 4 else (4 + 7 - wd)
@@ -167,6 +167,14 @@ def passcode_expires_at(start):
     return datetime.datetime(fri.year, fri.month, fri.day,
                              23, 59, 59, tzinfo=datetime.timezone.utc)
 
+def passcode_expires_at(start):
+    # Find Wednesday of the same week at 21:15:00 UTC
+    wd = start.weekday()  # Monday = 0, Sunday = 6
+    days_to_wed = (2 - wd) if wd <= 2 else (2 + 7 - wd)
+    wed = (start + datetime.timedelta(days=days_to_wed)).date()
+    return datetime.datetime(wed.year, wed.month, wed.day,
+                             21, 15, 0, tzinfo=datetime.timezone.utc)
+    
 def is_passcode_expired(passcode):
     start  = get_or_set_passcode_start(passcode)
     expiry = passcode_expires_at(start)
