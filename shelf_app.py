@@ -160,32 +160,31 @@ def get_or_set_passcode_start(passcode):
 
 def passcode_expires_at(start_utc: datetime.datetime) -> datetime.datetime:
     """
-    For testing: expires on the *same* Wednesday at 21:15 *local time*.
-    We convert the UTC timestamp into local, pick that week’s Wednesday,
-    set 21:15 local, and then convert back to UTC for comparison.
+    Expires on the same week's Friday at 23:59:59 local time (America/New_York).
+    Converts the UTC timestamp into local, finds that Friday date,
+    sets 23:59:59 local, then returns an equivalent UTC datetime.
     """
-    LOCAL_TZ = tz.gettz("America/New_York")
-    
-    # 1) Convert UTC start_time into local timezone
+    # 1) Define & convert into local Eastern Time
+    LOCAL_TZ    = tz.gettz("America/New_York")
     start_local = start_utc.astimezone(LOCAL_TZ)
 
-    # 2) Compute the date of "that week's Wednesday"
-    base = start_local.date()
-    wd = base.weekday()        # Mon=0 … Sun=6
-    if wd <= 2:                # if Mon/Tue/Wed
-        days_to_wed = 2 - wd
-    else:                      # if Thu/Fri/Sat/Sun
-        days_to_wed = 2 + 7 - wd
-    wed_date = base + datetime.timedelta(days=days_to_wed)
+    # 2) Compute that week's Friday (weekday 4)
+    base    = start_local.date()
+    wd      = base.weekday()  # Mon=0 … Sun=6
+    if wd <= 4:
+        days_to_fri = 4 - wd
+    else:
+        days_to_fri = 4 + 7 - wd
+    fri_date = base + datetime.timedelta(days=days_to_fri)
 
-    # 3) Build a *local* datetime at 21:15
+    # 3) Build a local datetime at 23:59:59
     expiry_local = datetime.datetime.combine(
-        wed_date,
-        datetime.time(hour=21, minute=15),
+        fri_date,
+        datetime.time(hour=23, minute=59, second=59),
         tzinfo=LOCAL_TZ
     )
 
-    # 4) Convert that back to UTC so we can compare to datetime.now(timezone.utc)
+    # 4) Convert back to UTC for your is_passcode_expired check
     return expiry_local.astimezone(datetime.timezone.utc)
 
 def is_passcode_expired(passcode: str) -> bool:
