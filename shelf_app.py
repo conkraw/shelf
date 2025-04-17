@@ -453,7 +453,7 @@ def login_screen():
             if data.get("exam_complete", False):
                 # Exam was complete; now check if the lock period is still active.
                 if is_passcode_locked(passcode_input, lock_hours=6):
-                    st.error("This passcode is locked. Please try again later.")
+                    st.error("This passcode is locked for 6 hours. Please try again later.")
                     return
                 else:
                     # Lock period has expired—delete the old session and create a new exam.
