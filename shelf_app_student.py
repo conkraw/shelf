@@ -316,6 +316,19 @@ def generate_review_doc(row, user_selected_letter, output_filename="review.docx"
     doc.save(output_filename)
     return output_filename
 
+
+def inject_pending_question(full_df):
+    if "pending_rec_id" in st.session_state and st.session_state.pending_rec_id:
+        pending_id = st.session_state.pending_rec_id
+        if pending_id not in full_df["record_id"].values:
+            pending_row = load_data()
+            pending_row = pending_row[pending_row["record_id"] == pending_id]
+            if not pending_row.empty:
+                pending_row["recommended_flag"] = True
+                full_df = pd.concat([pending_row, full_df], ignore_index=True)
+
+    return full_df
+
 def send_email_with_attachment(to_emails, subject, body, attachment_path):
     from_email = st.secrets["general"]["email"]
     password = st.secrets["general"]["email_password"]
@@ -531,7 +544,7 @@ def login_screen():
                 else:
                     # Lock period has expired—delete the old session and create a new exam.
                     doc_ref.delete()
-                    create_new_exam(full_df)
+                    create_new_exam(inject_pending_question(full_df))
             else:
                 # Resume the incomplete exam session.
                 st.session_state.question_index = data.get("question_index", 0)
@@ -549,7 +562,7 @@ def login_screen():
                     st.session_state.df = full_df
         else:
             # No saved session exists: create a new exam.
-            create_new_exam(full_df)
+            create_new_exam(inject_pending_question(full_df))
         
         st.rerun()
 
