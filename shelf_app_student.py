@@ -347,7 +347,8 @@ def store_pending_recommendation_if_incorrect():
     If any of them were answered incorrectly, store each in a pending collection
     with a next_due timestamp 48 hours ahead.
     """
-
+    st.write("storing pending recommendations") 
+    
     df = st.session_state.get("df", None)
     
     for idx, row in df.iterrows():
