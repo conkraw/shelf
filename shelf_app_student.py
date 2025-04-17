@@ -458,13 +458,11 @@ def login_screen():
     passcode_input = st.text_input("Enter your assigned passcode", type="password").strip()
     
     if st.button("Login"):
-        st.write("DEBUG: passcode_input entered:", repr(passcode_input))
 
         if "recipients" not in st.secrets:
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
 
-        st.write("DEBUG: st.secrets['recipients'] keys:", list(st.secrets["recipients"].keys()))
         
         if passcode_input not in st.secrets["recipients"]:
             st.error("Invalid passcode. Please try again.")
