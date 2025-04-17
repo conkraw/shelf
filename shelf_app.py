@@ -468,7 +468,7 @@ def login_screen():
 ### Exam Screen
 
 def exam_screen():
-    st.title("Shelf Examination Application")
+    st.title("Pediatric Clerkship NBME-Style Assessment Portal")
     st.write(f"Welcome, **{st.session_state.user_name}**!")
     
     df = st.session_state.df
