@@ -443,9 +443,11 @@ def save_exam_results():
 
 def login_screen():
     st.title("Shelf Examination Login")
-    passcode_input = st.text_input("Enter your assigned passcode", type="password")
+    passcode_input = st.text_input("Enter your assigned passcode", type="password").strip()
     
     if st.button("Login"):
+        st.write("DEBUG: passcode_input entered:", repr(passcode_input))
+
         if "recipients" not in st.secrets:
             st.error("Recipient emails not configured. Please set them in your secrets file under [recipients].")
             return
