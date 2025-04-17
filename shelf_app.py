@@ -434,7 +434,8 @@ def login_screen():
                     st.warning(f"No questions found for subject {subject_filter}. Using full dataset instead.")
         
         # Check for a saved exam session.
-        user_key = str(st.session_state.assigned_passcode)
+        #user_key = str(st.session_state.assigned_passcode)
+        user_key = passcode_input
         doc_ref = db.collection("exam_sessions").document(user_key)
         doc = doc_ref.get()
 
@@ -472,8 +473,7 @@ def login_screen():
 
         # Save the login details in session state.
         st.session_state.assigned_passcode = passcode_input
-        recipient_email = st.secrets["recipients"][passcode_input]
-        st.session_state.recipient_email = recipient_email
+        st.session_state.recipient_email = st.secrets["recipients"][passcode_input]
         st.session_state.user_name = user_name
         st.session_state.authenticated = True
         
