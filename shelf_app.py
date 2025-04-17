@@ -167,13 +167,21 @@ def passcode_expires_atxxx(start):
     return datetime.datetime(fri.year, fri.month, fri.day,
                              23, 59, 59, tzinfo=datetime.timezone.utc)
 
+
 def passcode_expires_at(start):
-    # Find Wednesday of the same week at 21:15:00 UTC
-    wd = start.weekday()  # Monday = 0, Sunday = 6
+    # Ensure start is in UTC (important if it was saved in local time)
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=datetime.timezone.utc)
+    else:
+        start = start.astimezone(datetime.timezone.utc)
+
+    # Set to Wednesday at 9:15 PM UTC
+    wd = start.weekday()  # Monday = 0
     days_to_wed = (2 - wd) if wd <= 2 else (2 + 7 - wd)
     wed = (start + datetime.timedelta(days=days_to_wed)).date()
     return datetime.datetime(wed.year, wed.month, wed.day,
                              21, 15, 0, tzinfo=datetime.timezone.utc)
+
     
 def is_passcode_expired(passcode):
     start  = get_or_set_passcode_start(passcode)
