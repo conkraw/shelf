@@ -321,10 +321,11 @@ def inject_pending_question(full_df):
     if "pending_rec_id" in st.session_state and st.session_state.pending_rec_id:
         pending_id = st.session_state.pending_rec_id
 
-        # Check if it's already in session_state.question_ids (exam in progress or recently completed)
-        if "question_ids" in st.session_state and pending_id in st.session_state.question_ids:
-            st.write(f"Skipping injection of {pending_id} — already in exam.")
-            return full_df
+        # Remove from global used list manually
+        used_ids = get_global_used_questions()
+        if pending_id in used_ids:
+            used_ids.remove(pending_id)
+        full_df = full_df[~full_df["record_id"].isin(used_ids)]
 
         if pending_id not in full_df["record_id"].values:
             pending_row = load_data()
@@ -334,6 +335,7 @@ def inject_pending_question(full_df):
                 full_df = pd.concat([pending_row, full_df], ignore_index=True)
 
     return full_df
+
 
 
 def send_email_with_attachment(to_emails, subject, body, attachment_path):
