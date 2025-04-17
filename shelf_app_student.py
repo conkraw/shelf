@@ -418,7 +418,8 @@ def get_pending_recommendation_for_user(user_name):
         pending_data = pending_doc.to_dict()
         #st.write("DEBUG: Using pending recommendation:", pending_data)
         # Delete the pending recommendation after retrieving it.
-        pending_doc.reference.delete()
+        if delete_after_fetch:
+            pending_doc.reference.delete()
         return pending_data["record_id"]
     return None
 
