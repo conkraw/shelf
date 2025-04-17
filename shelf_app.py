@@ -415,22 +415,6 @@ def login_screen():
         if is_passcode_expired(passcode_input):
             st.error("This passcode has expired for the week. Contact your instructor.")
             return
-
-        # ---- DEBUG: show start / expiry / now ----
-        start   = get_or_set_passcode_start(passcode_input)
-        expiry  = passcode_expires_at(start)
-        now     = datetime.datetime.now()
-        st.write(f"DEBUG → start: {start!r}")
-        st.write(f"DEBUG → expiry: {expiry!r}")
-        st.write(f"DEBUG → now:    {now!r}")
-        if now > expiry:
-            st.error(
-                f"Passcode expired!\n"
-                f"Now:    {now:%Y-%m-%d %H:%M}\n"
-                f"Expiry: {expiry:%Y-%m-%d %H:%M}"
-            )
-            return
-        st.stop()
         
         # Save the login details in session state.
         st.session_state.assigned_passcode = passcode_input
