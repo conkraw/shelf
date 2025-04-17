@@ -147,6 +147,8 @@ def lock_passcode(passcode):
     # Set the lock time to the server timestamp.
     doc_ref.set({"lock_time": firestore.SERVER_TIMESTAMP})
 
+# Define your local timezone
+LOCAL_TZ = tz.gettz("America/New_York")
 
 def get_or_set_passcode_start(passcode):
     ref = db.collection("passcode_starts").document(passcode)
