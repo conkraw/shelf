@@ -487,7 +487,7 @@ def login_screen():
             #st.stop()
             
             # Filter the DataFrame for the current user (assuming case-insensitive match).
-            user_recs = recs_df[recs_df["username"].str.lower() == st.session_state.user_name.lower()]
+            user_recs = recs_df[recs_df["user_name"].str.lower() == st.session_state.user_name.lower()]
             if not user_recs.empty:
                 unique_subjects = user_recs["subject"].dropna().unique()
                 unique_subjects = list(unique_subjects)
