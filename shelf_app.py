@@ -5,6 +5,7 @@ import glob
 import random
 import datetime
 import re
+from dateutil import tz
 
 from docx import Document
 from docx.shared import Inches
@@ -147,44 +148,50 @@ def lock_passcode(passcode):
     doc_ref.set({"lock_time": firestore.SERVER_TIMESTAMP})
 
 
-import datetime
-from dateutil import tz
-
 def get_or_set_passcode_start(passcode):
     ref = db.collection("passcode_starts").document(passcode)
     doc = ref.get()
     if doc.exists:
-        # This is already a Python datetime (naïve or TZ‑aware).
-        start = doc.to_dict()["start_time"]
+        # Firestore returns a timezone-aware UTC datetime
+        return doc.to_dict()["start_time"]
     else:
         ref.set({"start_time": firestore.SERVER_TIMESTAMP})
-        start = datetime.datetime.now()
-    # Return a **naïve** datetime for simplicity
-    return start if isinstance(start, datetime.datetime) else start.to_datetime()
+        # until Firestore syncs back, approximate with local now in UTC
+        return datetime.datetime.now(datetime.timezone.utc)
 
-def passcode_expires_at(start: datetime.datetime) -> datetime.datetime:
+def passcode_expires_at(start_utc: datetime.datetime) -> datetime.datetime:
     """
-    For testing: expires on the *same* week‑Wednesday at 21:15,
-    based on the date of `start`.  Returns a naïve datetime.
+    For testing: expires on the *same* Wednesday at 21:15 *local time*.
+    We convert the UTC timestamp into local, pick that week’s Wednesday,
+    set 21:15 local, and then convert back to UTC for comparison.
     """
-    # Work off the date only:
-    base_date = start.date()
-    wd = base_date.weekday()  # Mon=0 … Sun=6
-    # How many days to the next Wednesday (2)?
-    if wd <= 2:
+    # 1) Convert UTC start_time into local timezone
+    start_local = start_utc.astimezone(LOCAL_TZ)
+
+    # 2) Compute the date of "that week's Wednesday"
+    base = start_local.date()
+    wd = base.weekday()        # Mon=0 … Sun=6
+    if wd <= 2:                # if Mon/Tue/Wed
         days_to_wed = 2 - wd
-    else:
+    else:                      # if Thu/Fri/Sat/Sun
         days_to_wed = 2 + 7 - wd
-    wed_date = base_date + datetime.timedelta(days=days_to_wed)
-    # Build a naïve datetime at 21:15 that day:
-    return datetime.datetime.combine(wed_date, datetime.time(21, 15))
+    wed_date = base + datetime.timedelta(days=days_to_wed)
 
-    
+    # 3) Build a *local* datetime at 21:15
+    expiry_local = datetime.datetime.combine(
+        wed_date,
+        datetime.time(hour=21, minute=15),
+        tzinfo=LOCAL_TZ
+    )
+
+    # 4) Convert that back to UTC so we can compare to datetime.now(timezone.utc)
+    return expiry_local.astimezone(datetime.timezone.utc)
+
 def is_passcode_expired(passcode: str) -> bool:
-    start  = get_or_set_passcode_start(passcode)
-    expiry = passcode_expires_at(start)
-    now    = datetime.datetime.now()   # naïve
-    return now > expiry
+    start_utc = get_or_set_passcode_start(passcode)
+    expiry_utc = passcode_expires_at(start_utc)
+    now_utc    = datetime.datetime.now(datetime.timezone.utc)
+    return now_utc > expiry_utc
     
 def get_image_path(record_id, folder="images"):
     extensions = ["jpg", "jpeg", "png", "gif"]
