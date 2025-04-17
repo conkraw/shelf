@@ -92,68 +92,60 @@ def load_exam_state():
         st.session_state.email_sent = data.get("email_sent", False)
 
 def create_new_exam(full_df):
-    # ----------------------------------------------------------
-    # 1. First, check if the user has ANY pending recommendation.
-    if has_pending_recommendation_for_user(st.session_state.user_name):
-        # Do not use any recommended question from pending or fallback logic.
-        recommended_question = None
-    else:
-        # Otherwise, try to retrieve a pending recommended question if it is due.
-        pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name, delete_after_fetch=False)
+    recommended_question = None
 
-        recommended_question = None
-        if pending_rec_id is not None:
-            st.session_state.active_pending_rec_id = pending_rec_id
-            # Retrieve from the original full_df (before filtering used questions).
-            pending_df = full_df[full_df["record_id"] == pending_rec_id]
-            if not pending_df.empty:
-                recommended_question = pending_df.iloc[[0]].copy()
+    # 1. Try to retrieve a pending recommended question (and don't delete yet)
+    pending_rec_id = get_pending_recommendation_for_user(
+        st.session_state.user_name, delete_after_fetch=True
+    )
+
+    if pending_rec_id is not None:
+        st.session_state.active_pending_rec_id = pending_rec_id
+        pending_df = full_df[full_df["record_id"] == pending_rec_id]
+        if not pending_df.empty:
+            recommended_question = pending_df.iloc[[0]].copy()
+            recommended_question["recommended_flag"] = True
+    else:
+        # 2. Fallback to subject-based recommendation
+        recommended_subject = st.session_state.get("recommended_subject")
+        if recommended_subject is not None:
+            rec_df = full_df[full_df["subject"] == recommended_subject]
+            if not rec_df.empty:
+                recommended_question = rec_df.sample(n=1, replace=False).copy()
                 recommended_question["recommended_flag"] = True
-        else:
-            # Otherwise, use the normal process if a recommendation was set via Firebase.
-            recommended_subject = st.session_state.get("recommended_subject")
-            if recommended_subject is not None:
-                rec_df = full_df[full_df["subject"] == recommended_subject]
-                if not rec_df.empty:
-                    recommended_question = rec_df.sample(n=1, replace=False).copy()
-                    recommended_question["recommended_flag"] = True
-    # ----------------------------------------------------------
-    # 2. Filter out questions that have been used in the last 7 days.
+
+    # 3. Filter out globally used questions, EXCEPT the recommended one
     used_ids = get_global_used_questions()
     if recommended_question is not None:
-        rec_id = (recommended_question["record_id"].iloc[0]
-                  if isinstance(recommended_question["record_id"], pd.Series)
-                  else recommended_question["record_id"])
+        rec_id = recommended_question["record_id"].iloc[0]
         if rec_id in used_ids:
             used_ids.remove(rec_id)
     full_df = full_df[~full_df["record_id"].isin(used_ids)]
-    
-    # 3. Remove the reserved recommended question from full_df if it exists.
+
+    # 4. Remove the recommended one from sampling pool to avoid duplication
     if recommended_question is not None:
-        full_df = full_df.drop(full_df[full_df["record_id"] == recommended_question["record_id"].iloc[0]].index)
-    
-    # 4. Determine how many remaining questions to sample.
+        full_df = full_df[full_df["record_id"] != recommended_question["record_id"].iloc[0]]
+
+    # 5. Sample the rest
     remaining_n = 5 - 1 if recommended_question is not None else 5
     if len(full_df) >= remaining_n:
         sample_df = full_df.sample(n=remaining_n, replace=False)
     else:
         sample_df = full_df.sample(n=remaining_n, replace=True)
-    
-    # 5. If there is a recommended question, insert it into the sample.
+
+    # 6. Add recommended question back
     if recommended_question is not None:
-        sample_df = sample_df.copy()
-        sample_df["recommended_flag"] = False  # Mark these as not recommended.
+        sample_df["recommended_flag"] = False  # only the injected one is starred
         sample_df = pd.concat([recommended_question, sample_df])
-    
+
+    # 7. Final shuffle + setup
     sample_df = sample_df.sample(frac=1).reset_index(drop=True)
-    
-    st.session_state.question_ids = list(sample_df["record_id"])
-    st.session_state.df = sample_df.reset_index(drop=True)
-    total_questions = len(st.session_state.df)
-    st.session_state.results = [None] * total_questions
-    st.session_state.selected_answers = [None] * total_questions
-    st.session_state.result_messages = ["" for _ in range(total_questions)]
-    
+    st.session_state.df = sample_df
+    st.session_state.question_ids = sample_df["record_id"].tolist()
+    st.session_state.results = [None] * len(sample_df)
+    st.session_state.selected_answers = [None] * len(sample_df)
+    st.session_state.result_messages = ["" for _ in range(len(sample_df))]
+
     mark_questions_as_used(sample_df["record_id"].tolist())
 
 
