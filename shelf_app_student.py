@@ -477,14 +477,6 @@ def login_screen():
         if "pending_rec_id" not in st.session_state:
             st.session_state.pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
 
-        if "pending_rec_id" in st.session_state and st.session_state.pending_rec_id:
-            df = full_df  # or sample_df if you've already filtered
-            rec_id = st.session_state.pending_rec_id
-            if "recommended_flag" not in df.columns:
-                df["recommended_flag"] = False
-            df.loc[df["record_id"] == rec_id, "recommended_flag"] = True
-            st.session_state.df = df
-
         ######FIREBASE MUST BE WRITTEN AS A NUMBER... 19 = NUMBER, NOT STRING. 
         try:
             # Retrieve all documents from the "recommendations" collection.
@@ -536,6 +528,15 @@ def login_screen():
                     full_df = filtered_df
                 else:
                     st.warning(f"No questions found for subject {subject_filter}. Using full dataset instead.")
+
+        if "pending_rec_id" in st.session_state and st.session_state.pending_rec_id:
+            df = full_df  # or sample_df if you've already filtered
+            rec_id = st.session_state.pending_rec_id
+            if "recommended_flag" not in df.columns:
+                df["recommended_flag"] = False
+            df.loc[df["record_id"] == rec_id, "recommended_flag"] = True
+            st.session_state.df = df
+
         
         # Check for a saved exam session.
         user_key = str(st.session_state.assigned_passcode)
