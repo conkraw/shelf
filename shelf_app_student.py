@@ -399,33 +399,31 @@ def has_pending_recommendation_for_user(user_name):
     return len(pending_recs) > 0
 
 def save_exam_results():
-    """
-    Collects exam results details and saves them to the 'exam_results' collection in Firestore.
-    The details include for each question:
-      - record_id
-      - student's answer (the letter)
-      - correct answer text
-      - a result flag ("Correct" or "Incorrect")
-      - a flag indicating if the question is clerkship recommended.
-    It also saves the student's name, the passcode used, and the overall score.
-    """
-    
+    df = st.session_state.df.copy()  # avoid mutating original
     exam_data = []
-    df = st.session_state.df  # This is the exam DataFrame for this session.
+    recommended_indices = []
 
     for idx, row in df.iterrows():
-        record = {}
-        record["record_id"] = row["record_id"]
         student_ans = st.session_state.selected_answers[idx]
-        record["student_answer"] = student_ans if student_ans is not None else ""
         correct_letter = str(row["correct_answer"]).strip().lower()
         correct_answer_text = row.get("answerchoice_" + correct_letter, "")
-        record["correct_answer"] = correct_answer_text
-        record["result"] = "Correct" if student_ans and student_ans == correct_letter else "Incorrect"
-        record["clerkship_recommended"] = bool(row.get("recommended_flag", False))
+        is_correct = student_ans and student_ans == correct_letter
+
+        # You define how to recommend — for now assume all are recommended
+        recommended = True
+
+        record = {
+            "record_id": row["record_id"],
+            "student_answer": student_ans if student_ans else "",
+            "correct_answer": correct_answer_text,
+            "result": "Correct" if is_correct else "Incorrect",
+            "clerkship_recommended": recommended,
+        }
         exam_data.append(record)
-    
-    # Prepare a summary dictionary.
+
+        if recommended and not is_correct:
+            recommended_indices.append(idx)
+
     exam_summary = {
         "student_name": st.session_state.user_name,
         "passcode": st.session_state.assigned_passcode,
@@ -434,27 +432,22 @@ def save_exam_results():
         "exam_data": exam_data,
         "timestamp": firestore.SERVER_TIMESTAMP,
     }
-    
-    # Save to the "exam_results" collection.
+
     db.collection("exam_results").add(exam_summary)
     st.success("Thank you for your participation!")
 
-    st.dataframe(record)
+    # Store pending recs
+    for idx in recommended_indices:
+        row = df.iloc[idx]
+        due_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)
+        pending_data = {
+            "user_name": st.session_state.user_name,
+            "record_id": row["record_id"],
+            "next_due": due_time,
+        }
+        db.collection("pending_recommendations").add(pending_data)
+        st.write(f"🔁 Stored pending rec for {row['record_id']}")
 
-    for idx, row in df.iterrows():
-        if row.get("recommended_flag", False):
-            if st.session_state.results[idx] != "correct":
-                due_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)
-                pending_data = {
-                    "user_name": st.session_state.user_name,
-                    "record_id": row["record_id"],
-                    "next_due": due_time,
-                }
-                db.collection("pending_recommendations").add(pending_data)
-                st.write(f"Pending clerkship recommended question stored for record {row['record_id']} for re-administration in 48 hours.")
-    # If you remove the 'break', all incorrect recommended questions will be stored.
-
-    #store_pending_recommendation_if_incorrect()
     
 ### Login Screen
 
