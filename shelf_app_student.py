@@ -392,7 +392,6 @@ def get_pending_recommendation_for_user(user_name):
         pending_doc.reference.delete()
         return pending_data["record_id"]
 
-    st.stop()
     return None
 
 def has_pending_recommendation_for_user(user_name):
