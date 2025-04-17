@@ -365,7 +365,7 @@ def login_screen():
         """
         **Instructions**  
         1. Each student will be provided a **password** by their preceptor. This grants you access to **five** NBME‑style questions in various pediatric subjects, each including an answer and explanation.  
-        2. If you answer a question **incorrectly**, that question (with your answer and the explanation) will be emailed to the preceptor who gave you the password, so they can review it with you.  
+        2. If you answer one or more questions **incorrectly**, a random incorrect question (with your answer and the explanation) will be emailed to the preceptor who gave you the password, so they can review it with you.  
         3. While every effort has been made for accuracy, errors can occur. If you believe a question or explanation is in error, please email the course director for review.  
         4. After you **complete** your set of 5 questions, your passcode will be **locked for 6 hours** to prevent multiple emails.  
         5. **No question will be repeated** during the week your passcode is in use.  
