@@ -93,30 +93,26 @@ def load_exam_state():
 
 def create_new_exam(full_df):
     # ----------------------------------------------------------
-    # 1. First, check if the user has ANY pending recommendation.
-    if has_pending_recommendation_for_user(st.session_state.user_name):
-        # Do not use any recommended question from pending or fallback logic.
-        recommended_question = None
+    # 1. Try to retrieve a pending recommended question if it is due.
+    pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
+    recommended_question = None
+
+    if pending_rec_id is not None:
+        pending_df = full_df[full_df["record_id"] == pending_rec_id]
+        if not pending_df.empty:
+            recommended_question = pending_df.iloc[[0]].copy()
+            recommended_question["recommended_flag"] = True
     else:
-        # Otherwise, try to retrieve a pending recommended question if it is due.
-        pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
-        recommended_question = None
-        if pending_rec_id is not None:
-            # Retrieve from the original full_df (before filtering used questions).
-            pending_df = full_df[full_df["record_id"] == pending_rec_id]
-            if not pending_df.empty:
-                recommended_question = pending_df.iloc[[0]].copy()
+        # Fallback to subject-based recommendation
+        recommended_subject = st.session_state.get("recommended_subject")
+        if recommended_subject is not None:
+            rec_df = full_df[full_df["subject"] == recommended_subject]
+            if not rec_df.empty:
+                recommended_question = rec_df.sample(n=1, replace=False).copy()
                 recommended_question["recommended_flag"] = True
-        else:
-            # Otherwise, use the normal process if a recommendation was set via Firebase.
-            recommended_subject = st.session_state.get("recommended_subject")
-            if recommended_subject is not None:
-                rec_df = full_df[full_df["subject"] == recommended_subject]
-                if not rec_df.empty:
-                    recommended_question = rec_df.sample(n=1, replace=False).copy()
-                    recommended_question["recommended_flag"] = True
+
     # ----------------------------------------------------------
-    # 2. Now filter out questions that have been used in the last 7 days.
+    # 2. Filter out questions that have been used in the last 7 days.
     used_ids = get_global_used_questions()
     if recommended_question is not None:
         rec_id = (recommended_question["record_id"].iloc[0]
@@ -125,7 +121,6 @@ def create_new_exam(full_df):
         if rec_id in used_ids:
             used_ids.remove(rec_id)
     full_df = full_df[~full_df["record_id"].isin(used_ids)]
-    # ----------------------------------------------------------
     
     # 3. Remove the reserved recommended question from full_df if it exists.
     if recommended_question is not None:
