@@ -395,6 +395,12 @@ def store_pending_recommendation_if_incorrect():
     # If you remove the 'break', all incorrect recommended questions will be stored.
 
 
+def has_pending_recommendation_for_user(user_name):
+    query = db.collection("pending_recommendations").where("user_name", "==", user_name).stream()
+    pending_recs = list(query)
+    return len(pending_recs) > 0
+
+
 def get_pending_recommendation_for_user(user_name):
     now = datetime.datetime.now(datetime.timezone.utc)
     #st.write("DEBUG: Current UTC time:", now)
@@ -425,10 +431,6 @@ def get_pending_recommendation_for_user(user_name):
         return pending_data["record_id"]
     return None
 
-def has_pending_recommendation_for_user(user_name):
-    query = db.collection("pending_recommendations").where("user_name", "==", user_name).stream()
-    pending_recs = list(query)
-    return len(pending_recs) > 0
 
 def save_exam_results():
     """
