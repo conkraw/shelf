@@ -387,7 +387,7 @@ def get_pending_recommendation_for_user(user_name):
         pending_docs = sorted(pending_recs, key=lambda doc: doc.to_dict().get("next_due"))
         pending_doc = pending_docs[0]
         pending_data = pending_doc.to_dict()
-        #st.write("DEBUG: Using pending recommendation:", pending_data)
+        st.write("DEBUG: Using pending recommendation:", pending_data)
         # Delete the pending recommendation after retrieving it.
         pending_doc.reference.delete()
         return pending_data["record_id"]
