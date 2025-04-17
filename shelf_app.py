@@ -398,8 +398,6 @@ def login_screen():
     )
     passcode_input = st.text_input("Enter your assigned passcode", type="password")
     user_name = st.text_input("Enter your name")
-
-    
     
     if st.button("Login"):
         if "recipients" not in st.secrets:
@@ -415,14 +413,7 @@ def login_screen():
         if is_passcode_expired(passcode_input):
             st.error("This passcode has expired for the week. Contact your instructor.")
             return
-        
-        # Save the login details in session state.
-        st.session_state.assigned_passcode = passcode_input
-        recipient_email = st.secrets["recipients"][passcode_input]
-        st.session_state.recipient_email = recipient_email
-        st.session_state.authenticated = True
-        st.session_state.user_name = user_name
-
+    
         # Load the full dataset from CSVs.
         full_df = load_data()  # Loads all CSV files.
         
@@ -477,6 +468,14 @@ def login_screen():
         else:
             # No saved session exists: create a new exam.
             create_new_exam(full_df)
+
+
+        # Save the login details in session state.
+        st.session_state.assigned_passcode = passcode_input
+        recipient_email = st.secrets["recipients"][passcode_input]
+        st.session_state.recipient_email = recipient_email
+        st.session_state.user_name = user_name
+        st.session_state.authenticated = True
         
         st.rerun()
 
