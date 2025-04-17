@@ -473,17 +473,20 @@ def save_exam_results():
     db.collection("exam_results").add(exam_summary)
     st.success("Thank you for your participation!")
 
-    store_pending_recommendation_if_incorrect()
-
+        # ✅ Remove active pending rec first (if shown in this exam)
     if "active_pending_rec_id" in st.session_state:
         doc_ref = db.collection("pending_recommendations") \
                     .where("user_name", "==", st.session_state.user_name) \
                     .where("record_id", "==", st.session_state.active_pending_rec_id) \
                     .stream()
-
+    
         for doc in doc_ref:
             doc.reference.delete()
             st.write(f"✅ Pending recommendation {st.session_state.active_pending_rec_id} cleared.")
+    
+    # ✅ Now store any newly missed recommended questions
+    store_pending_recommendation_if_incorrect()
+
 
     
 ### Login Screen
