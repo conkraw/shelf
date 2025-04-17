@@ -394,12 +394,13 @@ def get_pending_recommendation_for_user(user_name):
 
     return None
 
+    st.stop()
+
 def has_pending_recommendation_for_user(user_name):
     query = db.collection("pending_recommendations").where("user_name", "==", user_name).stream()
     pending_recs = list(query)
     return len(pending_recs) > 0
-    st.write('stop')
-    st.stop()
+
 def save_exam_results():
     df = st.session_state.df.copy()  # avoid mutating original
     exam_data = []
