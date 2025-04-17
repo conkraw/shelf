@@ -167,6 +167,8 @@ def passcode_expires_at(start_utc: datetime.datetime) -> datetime.datetime:
     We convert the UTC timestamp into local, pick that week’s Wednesday,
     set 21:15 local, and then convert back to UTC for comparison.
     """
+    LOCAL_TZ = tz.gettz("America/New_York")
+    
     # 1) Convert UTC start_time into local timezone
     start_local = start_utc.astimezone(LOCAL_TZ)
 
