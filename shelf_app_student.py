@@ -349,16 +349,16 @@ def store_pending_recommendation_if_incorrect():
     If any of them were answered incorrectly, store each in a pending collection
     with a next_due timestamp 48 hours ahead.
     """
-    df = st.session_state.df
-
-    if "recommended_flag" not in df.columns:
-        st.warning("No 'recommended_flag' column found in DataFrame.")
+    if "user_name" not in st.session_state or not st.session_state.user_name:
+        st.warning("User not authenticated. Skipping pending recommendation check.")
         return
+
+    df = st.session_state.df
 
     for idx, row in df.iterrows():
         if row.get("recommended_flag", False):
             if idx >= len(st.session_state.results):
-                st.warning(f"Index {idx} out of bounds for results list.")
+                st.warning(f"Index {idx} out of bounds for results.")
                 continue
             if st.session_state.results[idx] != "correct":
                 due_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)
