@@ -376,47 +376,43 @@ def send_email_with_attachment(to_emails, subject, body, attachment_path):
 
 def store_pending_recommendation_if_incorrect():
     df = st.session_state.df
-    stored = 0
+    incorrect_indices = [idx for idx, result in enumerate(st.session_state.results) if result != "correct"]
 
-    for idx, row in df.iterrows():
-        is_recommended = row.get("recommended_flag", False)
-        was_incorrect = st.session_state.results[idx] != "correct"
+    if not incorrect_indices:
+        st.info("✅ All answers correct. No pending recommendation needed.")
+        return
 
-        st.write(f"Q{idx}: recommended={is_recommended}, result={st.session_state.results[idx]}")
+    # Pick one incorrect question at random
+    idx = random.choice(incorrect_indices)
+    row = df.iloc[idx]
 
-        if is_recommended and was_incorrect:
-            record_id = row["record_id"]
-            user_name = st.session_state.user_name
+    # Check if it's already pending
+    record_id = row["record_id"]
+    user_name = st.session_state.user_name
 
-            # ✅ Check if this is already pending
-            existing = db.collection("pending_recommendations") \
-                         .where("user_name", "==", user_name) \
-                         .where("record_id", "==", record_id) \
-                         .stream()
+    existing = db.collection("pending_recommendations") \
+                 .where("user_name", "==", user_name) \
+                 .where("record_id", "==", record_id) \
+                 .stream()
 
-            already_pending = any(True for _ in existing)
+    if any(True for _ in existing):
+        st.write(f"⚠️ Already pending: {record_id}")
+        return
 
-            if already_pending:
-                st.write(f"⚠️ Already pending: {record_id}")
-                continue  # Skip storing again
+    # Store it with a 48-hour re-review delay
+    due_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)
+    pending_data = {
+        "user_name": user_name,
+        "record_id": record_id,
+        "next_due": due_time,
+    }
 
-            # ✅ Not already pending — create it
-            due_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)
-            pending_data = {
-                "user_name": user_name,
-                "record_id": record_id,
-                "next_due": due_time,
-            }
+    try:
+        db.collection("pending_recommendations").add(pending_data)
+        st.write(f"✅ Stored one random incorrect answer: {record_id}")
+    except Exception as e:
+        st.error(f"❌ Failed to store: {e}")
 
-            try:
-                db.collection("pending_recommendations").add(pending_data)
-                st.write(f"✅ Stored again for: {record_id}")
-                stored += 1
-            except Exception as e:
-                st.error(f"❌ Failed to store: {e}")
-    
-    if stored == 0:
-        st.info("ℹ️ No new pending recs stored.")
 
 
 def has_pending_recommendation_for_user(user_name):
