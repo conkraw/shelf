@@ -92,29 +92,23 @@ def load_exam_state():
         st.session_state.email_sent = data.get("email_sent", False)
 
 def create_new_exam(full_df):
-    # ----------------------------------------------------------
-    # 1. First, check if the user has ANY pending recommendation.
-    if has_pending_recommendation_for_user(st.session_state.user_name):
-        # Do not use any recommended question from pending or fallback logic.
-        recommended_question = None
-    else:
-        # Otherwise, try to retrieve a pending recommended question if it is due.
-        pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
-        recommended_question = None
-        if pending_rec_id is not None:
-            # Retrieve from the original full_df (before filtering used questions).
-            pending_df = full_df[full_df["record_id"] == pending_rec_id]
-            if not pending_df.empty:
-                recommended_question = pending_df.iloc[[0]].copy()
-                recommended_question["recommended_flag"] = True
-        else:
-            # Otherwise, use the normal process if a recommendation was set via Firebase.
-            recommended_subject = st.session_state.get("recommended_subject")
-            if recommended_subject is not None:
-                rec_df = full_df[full_df["subject"] == recommended_subject]
-                if not rec_df.empty:
-                    recommended_question = rec_df.sample(n=1, replace=False).copy()
-                    recommended_question["recommended_flag"] = True
+    # 1. Pull **one** due pending recommendation (deleting it), otherwise fall back to your recommended_subject
+    pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
+    recommended_question = None
+
+    if pending_rec_id:
+        # use the pending question
+        pending_df = full_df[full_df["record_id"] == pending_rec_id]
+        if not pending_df.empty:
+            recommended_question = pending_df.iloc[[0]].copy()
+            recommended_question["recommended_flag"] = True
+    elif st.session_state.get("recommended_subject"):
+        # no pending—use your subject-based recommendation
+        subj = st.session_state.recommended_subject
+        rec_df = full_df[full_df["subject"] == subj]
+        if not rec_df.empty:
+            recommended_question = rec_df.sample(n=1).copy()
+            recommended_question["recommended_flag"] = True
     # ----------------------------------------------------------
     # 2. Now filter out questions that have been used in the last 7 days.
     used_ids = get_global_used_questions()
