@@ -78,7 +78,7 @@ def save_exam_state():
     db.collection("exam_sessions").document(user_key).set(data)
 
 def create_new_exam(full_df):
-    pending_rec_id        = get_pending_recommendation_for_user(...)
+    pending_rec_id      = get_pending_recommendation_for_user(st.session_state.user_name)
     recommended_subject   = st.session_state.get("recommended_subject")
     
     # We'll build a list of “special” DataFrames + flag markers:
