@@ -545,8 +545,6 @@ def exam_screen():
     if current_row.get("recommended_flag", False):
         st.write("**⭐ Clerkship Recommended**")
 
-    st.write(current_row["question"])
-    
     # Check if the current row has the expected keys. For example, verify "answerchoice_a" exists.
     if "answerchoice_a" not in current_row:
         st.error("No further questions available for your exam. Please try again later.")
