@@ -454,38 +454,37 @@ def login_screen():
             return
 
         # Save the login details in session state.
-    # Save the login details in session state.
-    assigned_value = st.secrets["recipients"][passcode_input]
-    
-    # DEBUGGING OUTPUT
-    st.write("DEBUG - Raw passcode input:", passcode_input)
-    st.write("DEBUG - Retrieved assigned_value from secrets:", assigned_value)
-    
-    # Parse value: email|rotation_start
-    try:
-        email, start_date_str = assigned_value.split("|")
-        st.write("DEBUG - Parsed email:", email)
-        st.write("DEBUG - Parsed start_date_str:", start_date_str)
-    
-        rotation_start = datetime.datetime.strptime(start_date_str.strip(), "%Y-%m-%d")
-        expiration_date = rotation_start + datetime.timedelta(days=25)
-    
-        st.write("DEBUG - Computed rotation_start:", rotation_start)
-        st.write("DEBUG - Computed expiration_date:", expiration_date)
-        st.write("DEBUG - Today:", datetime.datetime.today())
-    
-        if datetime.datetime.today() > expiration_date:
-            st.error("This passcode has expired. Access is no longer allowed.")
+        assigned_value = st.secrets["recipients"][passcode_input]
+        
+        # DEBUGGING OUTPUT
+        st.write("DEBUG - Raw passcode input:", passcode_input)
+        st.write("DEBUG - Retrieved assigned_value from secrets:", assigned_value)
+        
+        # Parse value: email|rotation_start
+        try:
+            email, start_date_str = assigned_value.split("|")
+            st.write("DEBUG - Parsed email:", email)
+            st.write("DEBUG - Parsed start_date_str:", start_date_str)
+        
+            rotation_start = datetime.datetime.strptime(start_date_str.strip(), "%Y-%m-%d")
+            expiration_date = rotation_start + datetime.timedelta(days=25)
+        
+            st.write("DEBUG - Computed rotation_start:", rotation_start)
+            st.write("DEBUG - Computed expiration_date:", expiration_date)
+            st.write("DEBUG - Today:", datetime.datetime.today())
+        
+            if datetime.datetime.today() > expiration_date:
+                st.error("This passcode has expired. Access is no longer allowed.")
+                return
+        except Exception as e:
+            st.error(f"Error parsing passcode settings: {e}")
             return
-    except Exception as e:
-        st.error(f"Error parsing passcode settings: {e}")
-        return
-    
-    # If still valid, assign to session state
-    st.session_state.assigned_passcode = passcode_input
-    st.session_state.recipient_email = email
-    st.session_state.user_name = email
-    st.session_state.authenticated = True
+        
+        # If still valid, assign to session state
+        st.session_state.assigned_passcode = passcode_input
+        st.session_state.recipient_email = email
+        st.session_state.user_name = email
+        st.session_state.authenticated = True
         st.stop()
         
         if "pending_rec_id" not in st.session_state:
