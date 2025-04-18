@@ -128,13 +128,16 @@ def create_new_exam(full_df):
     # ensure every row has both flags
     sample_df["pending_flag"]     = False
     sample_df["recommended_flag"] = False
-
+    
     for df_sp, typ in zip(special_dfs, special_types):
-        rid = df_sp.iloc[0]["record_id"]
-        # only drop "pending" from used_ids
-        if typ == "pending" and rid in used_ids:
-            used_ids.remove(rid)
-                        
+         rid = df_sp.iloc[0]["record_id"]
+         if typ == "pending":
+             sample_df.loc[sample_df["record_id"] == rid, "pending_flag"] = True
+         else:
+             sample_df.loc[sample_df["record_id"] == rid, "recommended_flag"] = True
+
+     if typ == "pending" and rid in used_ids:
+         used_ids.remove(rid)                   
     
     st.session_state.df               = sample_df
     st.session_state.question_ids     = sample_df["record_id"].tolist()
@@ -344,23 +347,12 @@ def login_screen():
 
         # Save the login details in session state.
         assigned_value = st.secrets["recipients"][passcode_input]
-        
-        # DEBUGGING OUTPUT
-        st.write("DEBUG - Raw passcode input:", passcode_input)
-        st.write("DEBUG - Retrieved assigned_value from secrets:", assigned_value)
-        
-        # Parse value: email|rotation_start
+
         try:
             email, start_date_str = assigned_value.split("|")
-            st.write("DEBUG - Parsed email:", email)
-            st.write("DEBUG - Parsed start_date_str:", start_date_str)
         
             rotation_start = datetime.datetime.strptime(start_date_str.strip(), "%Y-%m-%d")
             expiration_date = rotation_start + datetime.timedelta(days=25)
-        
-            st.write("DEBUG - Computed rotation_start:", rotation_start)
-            st.write("DEBUG - Computed expiration_date:", expiration_date)
-            st.write("DEBUG - Today:", datetime.datetime.today())
         
             if datetime.datetime.today() > expiration_date:
                 st.error("This passcode has expired. Access is no longer allowed.")
