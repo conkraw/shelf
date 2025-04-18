@@ -334,7 +334,7 @@ def save_exam_results():
 def login_screen():
     st.title("Pediatric Clerkship NBME-Style Assessment Portal 🩺")
     
-    with st.expander("📖 Show Instructions", expanded=True):
+    with st.expander("📖 Instructions", expanded=True):
         col1, col2 = st.columns(2)
         with col1:
             st.markdown("""
