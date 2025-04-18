@@ -78,47 +78,50 @@ def save_exam_state():
     db.collection("exam_sessions").document(user_key).set(data)
 
 def create_new_exam(full_df):
-    pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
-    recommended_question = None
-    is_pending   = False
-
+    pending_rec_id        = get_pending_recommendation_for_user(...)
+    recommended_subject   = st.session_state.get("recommended_subject")
+    
+    # We'll build a list of “special” DataFrames + flag markers:
+    special_dfs   = []
+    special_types = []  # parallel list: "pending" or "recommended"
+    
+    # 1️⃣ pending question, if any
     if pending_rec_id:
-        pending_df = full_df[full_df["record_id"] == pending_rec_id]
-        if not pending_df.empty:
-            recommended_question = pending_df.iloc[[0]].copy()
-            is_pending = True
-    elif st.session_state.get("recommended_subject"):
-        # no pending—use your subject-based recommendation
-        subj = st.session_state.recommended_subject
-        rec_df = full_df[full_df["subject"] == subj]
-        if not rec_df.empty:
-            recommended_question = rec_df.sample(n=1).copy()
+        df_pend = full_df[full_df["record_id"] == pending_rec_id]
+        if not df_pend.empty:
+            special_dfs.append(df_pend.iloc[[0]].copy())
+            special_types.append("pending")
+    
+    # 2️⃣ subject‐based recommendation (always separate)
+    if recommended_subject:
+        df_rec = full_df[full_df["subject"] == recommended_subject]
+        if not df_rec.empty:
+            special_dfs.append(df_rec.sample(n=1))
+            special_types.append("recommended")
     # ----------------------------------------------------------
-    # 2. Now filter out questions that have been used in the last 7 days.
     used_ids = get_global_used_questions()
-    if recommended_question is not None:
-        rec_id = (recommended_question["record_id"].iloc[0]
-                  if isinstance(recommended_question["record_id"], pd.Series)
-                  else recommended_question["record_id"])
-        if rec_id in used_ids:
-            used_ids.remove(rec_id)
-    filtered_df = full_df[~full_df["record_id"].isin(used_ids)]
-    # ----------------------------------------------------------
+
+    for df_sp in special_dfs:
+        rid = df_sp.iloc[0]["record_id"]
+        if rid in used_ids:
+            used_ids.remove(rid)
+  
+    exclude = used_ids + [df_sp.iloc[0]["record_id"] for df_sp in special_dfs]
     
-    # 3. Remove the reserved recommended question from full_df if it exists.
-    if recommended_question is not None:
-        filtered_df = filtered_df[filtered_df["record_id"] != rec_id]
+    filtered_df = full_df[~full_df["record_id"].isin(exclude)]
     
-    # 4. Determine how many remaining questions to sample.
-    remaining_n = 5 - 1 if recommended_question is not None else 5
-    if len(full_df) >= remaining_n:
-        sample_df = full_df.sample(n=remaining_n, replace=False)
+    # 4. Determine how many remaining questions to sample.    
+    n_special   = len(special_dfs)
+    remaining_n = 5 - n_special
+    
+    if len(filtered_df) >= remaining_n:
+        sample_df = filtered_df.sample(n=remaining_n, replace=False)
     else:
-        sample_df = full_df.sample(n=remaining_n, replace=True)
+        sample_df = filtered_df.sample(n=remaining_n, replace=True)
     
     # 5. If there is a recommended question, insert it into the sample.
-    if recommended_question is not None:
-        sample_df = pd.concat([recommended_question, sample_df], ignore_index=True)
+    if special_dfs:
+        sample_df = pd.concat(special_dfs + [sample_df], ignore_index=True)
     
     sample_df = sample_df.sample(frac=1).reset_index(drop=True)
 
@@ -126,13 +129,13 @@ def create_new_exam(full_df):
     sample_df["pending_flag"]     = False
     sample_df["recommended_flag"] = False
 
-    if recommended_question is not None:
-        rec_id = recommended_question.iloc[0]["record_id"]
-        if is_pending:
-            sample_df.loc[sample_df["record_id"] == rec_id, "pending_flag"] = True
+    for df_sp, typ in zip(special_dfs, special_types):
+        rid = df_sp.iloc[0]["record_id"]
+        if typ == "pending":
+            sample_df.loc[sample_df["record_id"] == rid, "pending_flag"] = True
         else:
-            sample_df.loc[sample_df["record_id"] == rec_id, "recommended_flag"] = True
-                
+            sample_df.loc[sample_df["record_id"] == rid, "recommended_flag"] = True
+                    
     
     st.session_state.df               = sample_df
     st.session_state.question_ids     = sample_df["record_id"].tolist()
