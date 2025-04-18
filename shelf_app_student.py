@@ -484,18 +484,19 @@ def exam_screen():
 
             row = st.session_state.df.iloc[i]
 
+            icons = ""
+            
             if row.get("pending_flag", False):
-                icon  = "🔴"
-                extra = " – Repeat Question"
-            elif row.get("recommended_flag", False):
-                icon  = "⭐"
-                extra = ""
-            else:
-                icon  = ""
-                extra = ""
-
-            label = f"Question {i+1}:{icon} {marker}{current_marker}{extra}"
-    
+                icons += "🔴"
+            if row.get("recommended_flag", False):
+                icons += "⭐"
+            
+            # Only add the “– Repeat Question” text for pending
+            extra = " – Repeat Question" if row.get("pending_flag", False) else ""
+            
+            # Assemble the label
+            label = f"Question {i+1}:{icons} {marker}{current_marker}{extra}"
+            
             if st.button(label, key=f"nav_{i}"):
                 st.session_state.question_index = i
                 st.rerun()
