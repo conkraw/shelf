@@ -332,7 +332,33 @@ def save_exam_results():
 ### Login Screen
 
 def login_screen():
-    st.title("Shelf Examination Login")
+    st.title("Pediatric Clerkship NBME-Style Assessment Portal")
+
+    st.markdown(
+        """
+        **Instructions**
+    
+        - At the start of your rotation, you’ll receive a **password** that gives you access to **5 NBME-style questions** in a variety of pediatric topics.  
+          Each question includes a detailed answer and explanation to support your learning.
+    
+        - If you answer a question **incorrectly**, don’t worry — it will be saved and gently re-administered **48 hours later** to help reinforce your understanding.
+    
+        - Once you’ve completed all 5 questions, your passcode will be **locked for 6 hours** to give space for review and reflection.
+    
+        - Questions may be **repeated after 7 days**, allowing time to revisit and strengthen core concepts.
+    
+        - All passcodes will **expire at the end of your rotation**, so please complete your questions before then.
+    
+        - This exam is **personalized** to support your growth.  
+          It’s designed using input from **you**, your **preceptors**, and your **assessments** to help guide your development as a future physician.
+
+        - This application is designed for **daily use during the workweek (Monday–Friday)** — while **100% participation is preferred**, a completion rate of **at least 70%** is acceptable; repeated attempts on the same day will only count once toward this goal.
+    
+        - We’ve done our best to ensure accuracy, but if you notice something that doesn’t seem right, please reach out to the **course director** — your feedback is always welcome!
+        """
+    )
+
+
     passcode_input = st.text_input("Enter your assigned passcode", type="password").strip()
     
     if st.button("Login"):
