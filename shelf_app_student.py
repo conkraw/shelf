@@ -219,49 +219,6 @@ def load_data(pattern="*.csv"):
         combined_df["record_id"] = combined_df["record_id"].astype(str)
     return combined_df
 
-
-    
-def generate_review_doc(row, user_selected_letter, output_filename="review.docx"):
-    doc = Document()
-    doc.add_heading("Review of Incorrect Question", level=1)
-    doc.add_heading(f"Student: {st.session_state.user_name}", level=2)
-    doc.add_heading(f"Question {row['record_id']}:", level=2)
-    doc.add_paragraph(row["question"])
-    
-    image_path = get_image_path(row["record_id"])
-    if image_path:
-        try:
-            doc.add_picture(image_path, width=Inches(4))
-        except Exception as e:
-            doc.add_paragraph(f"(Image could not be added: {e})")
-    
-    if "anchor" in row:
-        doc.add_paragraph(row["anchor"])
-    
-    doc.add_heading("Answer Choices:", level=2)
-    for letter in ["a", "b", "c", "d", "e"]:
-        col_name = "answerchoice_" + letter
-        if pd.notna(row[col_name]) and str(row[col_name]).strip():
-            doc.add_paragraph(f"{letter.upper()}: {row[col_name]}")
-    
-    doc.add_heading("Student Answer:", level=2)
-    if user_selected_letter:
-        user_answer_text = row.get("answerchoice_" + user_selected_letter, "N/A")
-        doc.add_paragraph(user_answer_text)
-    else:
-        doc.add_paragraph("No answer selected.")
-    
-    correct_letter = str(row["correct_answer"]).strip().lower()
-    correct_answer_text = row.get("answerchoice_" + correct_letter, "N/A")
-    doc.add_heading("Correct Answer:", level=2)
-    doc.add_paragraph(correct_answer_text)
-    
-    doc.add_heading("Explanation:", level=2)
-    doc.add_paragraph(row["answer_explanation"])
-    
-    doc.save(output_filename)
-    return output_filename
-
 def send_email_with_attachment(to_emails, subject, body, attachment_path):
     from_email = st.secrets["general"]["email"]
     password = st.secrets["general"]["email_password"]
