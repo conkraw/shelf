@@ -209,26 +209,6 @@ def mark_questions_as_used(question_ids):
             "timestamp": firestore.SERVER_TIMESTAMP
         })
         
-def sample_new_exam(full_df, n=5):
-    """
-    Samples n questions from full_df that have not yet been used in the last 7 days.
-    If no questions are available, displays an error message and stops.
-    If fewer than n questions are available, uses all remaining questions.
-    """
-    used_ids = get_global_used_questions()
-    available_df = full_df[~full_df["record_id"].isin(used_ids)]
-    if available_df.empty:
-        st.error("No further cases available for your passcode. Please try again later.")
-        st.stop()
-    if len(available_df) < n:
-        st.warning("Fewer than the expected number of questions are available. Using all remaining questions.")
-        sample_df = available_df
-    else:
-        sample_df = available_df.sample(n=n, replace=False)
-    mark_questions_as_used(sample_df["record_id"].tolist())
-    return sample_df
-
-
 def load_data(pattern="*.csv"):
     csv_files = glob.glob(pattern)
     dfs = [pd.read_csv(file) for file in csv_files]
