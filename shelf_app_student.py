@@ -78,6 +78,7 @@ def save_exam_state():
     db.collection("exam_sessions").document(user_key).set(data)
 
 def create_new_exam(full_df):
+    used_ids            = get_global_used_questions()
     pending_rec_id      = get_pending_recommendation_for_user(st.session_state.user_name)
     recommended_subject   = st.session_state.get("recommended_subject")
     
@@ -93,21 +94,18 @@ def create_new_exam(full_df):
             special_types.append("pending")
     
     # 2️⃣ subject‐based recommendation (always separate)
+
     if recommended_subject:
         df_rec = full_df[full_df["subject"] == recommended_subject]
         if not df_rec.empty:
-            special_dfs.append(df_rec.sample(n=1))
-            special_types.append("recommended")
+            pick = df_rec.sample(1).copy()
+            rid  = pick.iloc[0]["record_id"]
+            if rid not in used_ids:
+                special_dfs.append(pick)
+                special_types.append("recommended")
     # ----------------------------------------------------------
-    used_ids = get_global_used_questions()
-
-    for df_sp in special_dfs:
-        rid = df_sp.iloc[0]["record_id"]
-        if rid in used_ids:
-            used_ids.remove(rid)
-  
-    exclude = used_ids + [df_sp.iloc[0]["record_id"] for df_sp in special_dfs]
-    
+    # Exclude all recently used *and* any specials (so we can prepend them later)
+    exclude     = used_ids + [df_sp.iloc[0]["record_id"] for df_sp in special_dfs]
     filtered_df = full_df[~full_df["record_id"].isin(exclude)]
     
     # 4. Determine how many remaining questions to sample.    
