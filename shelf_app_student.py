@@ -495,7 +495,7 @@ def exam_screen():
                 icons += "⭐"
             
             # Only add the “– Repeat Question” text for pending
-            extra = " – Repeat Question" if row.get("pending_flag", False) else ""
+            extra = "" if row.get("pending_flag", False) else ""
             
             # Assemble the label
             label = f"Question {i+1}:{icons} {marker}{current_marker}{extra}"
