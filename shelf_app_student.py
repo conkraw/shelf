@@ -77,20 +77,6 @@ def save_exam_state():
     }
     db.collection("exam_sessions").document(user_key).set(data)
 
-def load_exam_state():
-    user_key = get_user_key()
-    doc_ref = db.collection("exam_sessions").document(user_key)
-    doc = doc_ref.get()
-    if doc.exists:
-        data = doc.to_dict()
-        st.session_state.question_index = data.get("question_index", 0)
-        st.session_state.score = data.get("score", 0)
-        st.session_state.results = data.get("results", st.session_state.results)
-        st.session_state.selected_answers = data.get("selected_answers", st.session_state.selected_answers)
-        st.session_state.result_messages = data.get("result_messages", st.session_state.result_messages)
-        st.session_state.question_ids = data.get("question_ids", st.session_state.question_ids)
-        st.session_state.email_sent = data.get("email_sent", False)
-
 def create_new_exam(full_df):
     # 1. Pull **one** due pending recommendation (deleting it), otherwise fall back to your recommended_subject
     pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
