@@ -485,7 +485,6 @@ def login_screen():
         st.session_state.recipient_email = email
         st.session_state.user_name = email
         st.session_state.authenticated = True
-        st.stop()
         
         if "pending_rec_id" not in st.session_state:
             st.session_state.pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
