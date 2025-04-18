@@ -135,20 +135,6 @@ def create_new_exam(full_df):
     
     mark_questions_as_used(sample_df["record_id"].tolist())
 
-    
-def check_and_add_passcode(passcode):
-    passcode_str = str(passcode)
-    if passcode_str.lower() == "password":
-        return False
-    doc_ref = db.collection("shelf_records").document(passcode_str)
-    if not doc_ref.get().exists:
-        doc_ref.set({"processed": True})
-        return False
-    else:
-        return True
-
-
-
 def is_passcode_locked(passcode, lock_hours=6):
     """
     Checks if the passcode is locked.
