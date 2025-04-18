@@ -131,11 +131,10 @@ def create_new_exam(full_df):
 
     for df_sp, typ in zip(special_dfs, special_types):
         rid = df_sp.iloc[0]["record_id"]
-        if typ == "pending":
-            sample_df.loc[sample_df["record_id"] == rid, "pending_flag"] = True
-        else:
-            sample_df.loc[sample_df["record_id"] == rid, "recommended_flag"] = True
-                    
+        # only drop "pending" from used_ids
+        if typ == "pending" and rid in used_ids:
+            used_ids.remove(rid)
+                        
     
     st.session_state.df               = sample_df
     st.session_state.question_ids     = sample_df["record_id"].tolist()
