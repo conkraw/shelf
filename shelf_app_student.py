@@ -136,8 +136,8 @@ def create_new_exam(full_df):
          else:
              sample_df.loc[sample_df["record_id"] == rid, "recommended_flag"] = True
 
-     if typ == "pending" and rid in used_ids:
-         used_ids.remove(rid)                   
+         if typ == "pending" and rid in used_ids:
+             used_ids.remove(rid)                   
     
     st.session_state.df               = sample_df
     st.session_state.question_ids     = sample_df["record_id"].tolist()
