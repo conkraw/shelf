@@ -78,23 +78,21 @@ def save_exam_state():
     db.collection("exam_sessions").document(user_key).set(data)
 
 def create_new_exam(full_df):
-    # 1. Pull **one** due pending recommendation (deleting it), otherwise fall back to your recommended_subject
     pending_rec_id = get_pending_recommendation_for_user(st.session_state.user_name)
     recommended_question = None
+    is_pending   = False
 
     if pending_rec_id:
-        # use the pending question
         pending_df = full_df[full_df["record_id"] == pending_rec_id]
         if not pending_df.empty:
             recommended_question = pending_df.iloc[[0]].copy()
-            recommended_question["recommended_flag"] = True
+            is_pending = True
     elif st.session_state.get("recommended_subject"):
         # no pending—use your subject-based recommendation
         subj = st.session_state.recommended_subject
         rec_df = full_df[full_df["subject"] == subj]
         if not rec_df.empty:
             recommended_question = rec_df.sample(n=1).copy()
-            recommended_question["recommended_flag"] = True
     # ----------------------------------------------------------
     # 2. Now filter out questions that have been used in the last 7 days.
     used_ids = get_global_used_questions()
@@ -104,12 +102,12 @@ def create_new_exam(full_df):
                   else recommended_question["record_id"])
         if rec_id in used_ids:
             used_ids.remove(rec_id)
-    full_df = full_df[~full_df["record_id"].isin(used_ids)]
+    filtered_df = full_df[~full_df["record_id"].isin(used_ids)]
     # ----------------------------------------------------------
     
     # 3. Remove the reserved recommended question from full_df if it exists.
     if recommended_question is not None:
-        full_df = full_df.drop(full_df[full_df["record_id"] == recommended_question["record_id"].iloc[0]].index)
+        filtered_df = filtered_df[filtered_df["record_id"] != rec_id]
     
     # 4. Determine how many remaining questions to sample.
     remaining_n = 5 - 1 if recommended_question is not None else 5
@@ -120,19 +118,30 @@ def create_new_exam(full_df):
     
     # 5. If there is a recommended question, insert it into the sample.
     if recommended_question is not None:
-        sample_df = sample_df.copy()
-        sample_df["recommended_flag"] = False  # Mark these as not recommended.
-        sample_df = pd.concat([recommended_question, sample_df])
+        sample_df = pd.concat([recommended_question, sample_df], ignore_index=True)
     
     sample_df = sample_df.sample(frac=1).reset_index(drop=True)
+
+    # ensure every row has both flags
+    sample_df["pending_flag"]     = False
+    sample_df["recommended_flag"] = False
+
+    if recommended_question is not None:
+        rec_id = recommended_question.iloc[0]["record_id"]
+        if is_pending:
+            sample_df.loc[sample_df["record_id"] == rec_id, "pending_flag"] = True
+        else:
+            sample_df.loc[sample_df["record_id"] == rec_id, "recommended_flag"] = True
+                
     
-    st.session_state.question_ids = list(sample_df["record_id"])
-    st.session_state.df = sample_df.reset_index(drop=True)
-    total_questions = len(st.session_state.df)
-    st.session_state.results = [None] * total_questions
+    st.session_state.df               = sample_df
+    st.session_state.question_ids     = sample_df["record_id"].tolist()
+    total_questions                   = len(sample_df)
+    st.session_state.results          = [None] * total_questions
     st.session_state.selected_answers = [None] * total_questions
-    st.session_state.result_messages = ["" for _ in range(total_questions)]
+    st.session_state.result_messages  = [""]    * total_questions
     
+    # 3) Mark questions as used
     mark_questions_as_used(sample_df["record_id"].tolist())
 
 def is_passcode_locked(passcode, lock_hours=6):
