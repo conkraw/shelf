@@ -364,7 +364,7 @@ def login_screen():
 
 
 
-    passcode_input = st.text_input("Please your assigned passcode", type="password").strip()
+    passcode_input = st.text_input("Please your assigned passcode:", type="password").strip()
     
     if st.button("Login"):
         if "recipients" not in st.secrets:
