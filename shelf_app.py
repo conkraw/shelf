@@ -382,20 +382,37 @@ def save_exam_results():
 
 def login_screen():
     st.title("Pediatric Clerkship NBME-Style Assessment Portal")
-    st.markdown(
-        """
-        **Instructions**  
-        1. Each student will be provided a **password** by their preceptor. This grants you access to **five** NBME‑style questions in various pediatric subjects, each including an answer and explanation.  
-        2. If you answer one or more questions **incorrectly**, a random incorrect question (with your answer and the explanation) will be emailed to the preceptor who gave you the password, so they can review it with you.  
-        3. While every effort has been made for accuracy, errors can occur. If you believe a question or explanation is in error, please email the course director for review.  
-        4. After you **complete** your set of 5 questions, your passcode will be **locked for 6 hours** to prevent multiple emails.  
-        5. **No question will be repeated** during the week your passcode is in use.  
-        6. **All passcodes expire by Friday at 23:59** of the week in which they are first used.  
-           - *For example:* if you first use your password on **Sunday, April 6**, it will expire at **Friday, April 11 23:59**.  
-           - If you first use it on **Friday morning**, it still expires that same **Friday at 23:59**.
-        ---
-        """
-    )
+    
+    with st.expander("📖Instructions", expanded=True):
+        col1, col2 = st.columns(2)
+    
+        with col1:
+            st.markdown("""
+            1. Each student will be provided a **password** by their preceptor.  
+               This grants you access to **five** NBME‑style questions in various pediatric subjects, each including an answer and explanation.
+    
+            2. If you answer one or more questions **incorrectly**, a random incorrect question  
+               (with your answer and the explanation) will be emailed to the preceptor who gave you the password,  
+               so they can review it with you.
+    
+            3. While every effort has been made for accuracy, **errors can occur**.  
+               If you believe a question or explanation is in error, please email the **course director** for review.
+            """)
+    
+        with col2:
+            st.markdown("""
+            4. After you **complete** your set of 5 questions, your passcode will be **locked for 6 hours**  
+               to prevent multiple emails.
+    
+            5. **No question will be repeated** during the week your passcode is in use.
+    
+            6. **All passcodes expire by Friday at 23:59** of the week in which they are first used.  
+               - *For example:* if you first use your password on **Sunday, April 6**, it will expire at **Friday, April 11 23:59**.  
+               - If you first use it on **Friday morning**, it still expires that same **Friday at 23:59**.
+    
+            ---
+            """)
+
     passcode_input = st.text_input("Enter your assigned passcode", type="password")
     user_name = st.text_input("Enter your name")
     
