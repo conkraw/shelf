@@ -333,7 +333,7 @@ def save_exam_results():
 
 def login_screen():
     st.title("Shelf Examination Login")
-    passcode_input = st.text_input("Enter your assigned passcode", type="password")
+    passcode_input = st.text_input("Enter your assigned passcode", type="password").strip()
     
     if st.button("Login"):
         if "recipients" not in st.secrets:
