@@ -409,8 +409,6 @@ def login_screen():
             6. **All passcodes expire by Friday at 23:59** of the week in which they are first used.  
                - *For example:* if you first use your password on **Sunday, April 6**, it will expire at **Friday, April 11 23:59**.  
                - If you first use it on **Friday morning**, it still expires that same **Friday at 23:59**.
-    
-            ---
             """)
 
     passcode_input = st.text_input("Enter your assigned passcode", type="password")
