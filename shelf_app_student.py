@@ -343,6 +343,10 @@ def login_screen():
             st.error("Invalid passcode. Please try again.")
             return
 
+        if is_passcode_locked(passcode_input, lock_hours=6):
+            st.error("This passcode is locked for 6 hours. Please try again later.")
+            return
+            
         # Save the login details in session state.
         assigned_value = st.secrets["recipients"][passcode_input]
 
