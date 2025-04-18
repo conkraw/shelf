@@ -219,31 +219,6 @@ def load_data(pattern="*.csv"):
         combined_df["record_id"] = combined_df["record_id"].astype(str)
     return combined_df
 
-def send_email_with_attachment(to_emails, subject, body, attachment_path):
-    from_email = st.secrets["general"]["email"]
-    password = st.secrets["general"]["email_password"]
-    
-    msg = MIMEMultipart()
-    msg['From'] = from_email
-    msg['To'] = ', '.join(to_emails)
-    msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'html'))
-    
-    with open(attachment_path, 'rb') as attachment:
-        part = MIMEBase('application', 'octet-stream')
-        part.set_payload(attachment.read())
-        encoders.encode_base64(part)
-        part.add_header('Content-Disposition', 'attachment', filename=os.path.basename(attachment_path))
-        msg.attach(part)
-    
-    try:
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-            server.login(from_email, password)
-            server.send_message(msg, from_addr=from_email, to_addrs=to_emails)
-        st.success("Email sent successfully!")
-    except Exception as e:
-        st.error(f"Error sending email: {e}")
-
 def store_pending_recommendation_if_incorrect():
     """
     Check the exam DataFrame for clerkship recommended questions.
