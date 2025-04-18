@@ -221,23 +221,28 @@ def load_data(pattern="*.csv"):
 
 def store_pending_recommendation_if_incorrect():
     """
-    Check the exam DataFrame for clerkship recommended questions.
-    If any of them were answered incorrectly, store each in a pending collection
-    with a next_due timestamp 48 hours ahead.
+    Pick one wrong question at random and store it with next_due = now +48h.
     """
-    df = st.session_state.df
-    for idx, row in df.iterrows():
-        if row.get("recommended_flag", False):
-            if st.session_state.results[idx] != "correct":
-                due_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)
-                pending_data = {
-                    "user_name": st.session_state.user_name,
-                    "record_id": row["record_id"],
-                    "next_due": due_time,
-                }
-                db.collection("pending_recommendations").add(pending_data)
-                st.write(f"Pending clerkship recommended question stored for record {row['record_id']} for re-administration in 48 hours.")
-    # If you remove the 'break', all incorrect recommended questions will be stored.
+    # Collect all indices answered incorrectly
+    wrong_idxs = [
+        i for i, result in enumerate(st.session_state.results)
+        if result == "incorrect"
+    ]
+    if not wrong_idxs:
+        return
+
+    # Pick one at random
+    idx = random.choice(wrong_idxs)
+    row = st.session_state.df.iloc[idx]
+
+    due_time = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=48)
+    pending_data = {
+        "user_name":  st.session_state.user_name,
+        "record_id":  row["record_id"],
+        "next_due":   due_time,
+    }
+    db.collection("pending_recommendations").add(pending_data)
+    st.write(f"🔖 Stored pending question for record {row['record_id']} (re-admin in 48 h).")
 
 
 def get_pending_recommendation_for_user(user_name):
